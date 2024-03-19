@@ -1,0 +1,119 @@
+plugins {
+	id 'org.springframework.boot' version '2.7.3'
+	id 'io.spring.dependency-management' version '1.0.13.RELEASE'
+	id 'java'
+}
+
+group = 'com.architecture'
+sourceCompatibility = '17'
+
+version='0.0.19'
+
+tasks.register("incrementVersion"){
+	doLast{
+		def ver = version
+		String lastNumber = ver.substring(ver.lastIndexOf('.') + 1)
+		int increment = lastNumber.toInteger() + 1
+		String firstNumber = ver.substring(0, ver.lastIndexOf("."))
+		String result = buildFile.getText().replaceFirst("version='$version'", "version='" + firstNumber + "." + increment + "'")
+		buildFile.setText(result,"UTF-8")
+	}
+}
+
+jar{
+	enabled = false
+}
+
+bootJar {
+	archiveBaseName = "webtoon_api"
+	archiveFileName = "webtoon_api_" + version+ ".jar"
+}
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+	all {
+		exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+	}
+}
+
+dependencies {
+	// 기본
+	implementation 'org.springframework.boot:spring-boot-starter'
+    testImplementation("org.springframework.boot:spring-boot-starter-test"){
+        exclude group: "com.vaadin.external.google", module:"android-json"
+    }
+	// 내장 톰캣
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	// Java 라이브러리로 반복되는 getter, setter, toString 등의 메서드 작성 코드를 줄여주는 코드 다이어트 라이브러리
+	implementation 'org.projectlombok:lombok:1.18.24'
+	annotationProcessor 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok' //추가
+	// validation 라이브러리
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// 디비 연결 라이브러리
+	implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:2.2.2'
+	implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+	runtimeOnly 'mysql:mysql-connector-java'
+	// 로그 라이브러리
+	implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+	// redis
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.session:spring-session-data-redis'
+	// s3 업로드
+	implementation 'io.awspring.cloud:spring-cloud-starter-aws:2.4.2'
+	// excel 다운로드
+	implementation group: 'org.apache.poi', name: 'poi', version: '5.0.0'
+	implementation group: 'org.apache.poi', name: 'poi-ooxml', version: '5.0.0'
+	// json
+	implementation group: 'org.json', name: 'json', version: '20220924'
+	// commons-codec base64 codec
+	implementation group: 'commons-codec', name: 'commons-codec', version: '1.15'
+
+	// image resize
+	implementation 'com.github.downgoon:marvin:1.5.5'
+	implementation 'com.github.downgoon:MarvinPlugins:1.5.5'
+
+	// 이미지 리사이징중 ImageIO에서 webp 지원을 안함
+	// WebP image-io for Java
+	implementation group: 'org.sejda.imageio', name: 'webp-imageio', version: '0.1.6'
+
+	//thumbor upload
+	implementation 'com.squareup:pollexor:3.0.0'
+
+	//json web token(JWT)
+	implementation 'io.jsonwebtoken:jjwt:0.9.1'
+
+	implementation group: 'org.glassfish.jaxb', name: 'jaxb-runtime', version: '3.0.2'
+
+	//gson
+	implementation 'com.google.code.gson:gson:2.9.0'
+
+	// devtool
+	implementation 'org.springframework.boot:spring-boot-devtools'
+
+	//jsp
+	//implementation('javax.servlet:jstl')
+	//implementation("org.apache.tomcat.embed:tomcat-embed-jasper")
+
+	//본인인증
+	implementation fileTree(dir: 'libs\\check', include: ['*.jar'])
+
+	//pg결제 라이브러리
+	implementation fileTree(dir: 'libs\\pg\\hecto', include: ['*.jar'])
+
+	//thumbor upload
+	implementation 'com.squareup:pollexor:3.0.0'
+
+}
+
+test.onlyIf {
+	!project.hasProperty('test')
+}
