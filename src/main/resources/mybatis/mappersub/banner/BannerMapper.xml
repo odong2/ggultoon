@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.banner.BannerDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 배너 조회 -->
+    <select id="getBannerList" parameterType="BannerDto" resultType="BannerDto">
+        SELECT
+            ba.`idx`,
+            ba.`title`,
+            ba.`code`,
+            ba.`link`,
+            ba.`adult_pavilion`,
+            baim.`url`,
+            bama.`idx` AS banner_mapping_idx,
+            bama.`type`,
+            bama.`category_idx`,
+            bama.`genre_idx`
+        FROM <include refid="database"/>`banner_mapping` AS bama
+        JOIN <include refid="database"/>`banner` AS ba
+            ON bama.`banner_idx` = ba.`idx`
+            AND ba.`state` = 1
+            <![CDATA[
+            AND ba.`start_date` <= #{nowDate}
+            AND ba.`end_date` > #{nowDate}
+            ]]>
+        JOIN <include refid="database"/>`banner_img` AS baim
+            ON ba.`idx` = baim.`banner_idx` AND baim.`state` = 1 AND baim.`img_type` = #{imgType}
+        <where>
+                ba.`adult_pavilion` = #{pavilionIdx}
+            AND bama.state = 1
+            <if test="type != null">
+                AND bama.`type` = #{type}
+            </if>
+            <if test="genreIdx != null">
+                AND bama.`category_idx` = #{categoryIdx}
+                AND bama.`genre_idx` = #{genreIdx}
+            </if>
+        </where>
+        ORDER BY ba.`sort` ASC
+    </select>
+
+    <!-- 배너 정보 -->
+    <select id="getBannerMapping" parameterType="_int" resultType="BannerDto">
+        SELECT
+            bama.`idx` AS banner_mapping_idx,
+            bama.`type`,
+            bama.`category_idx`,
+            bama.`genre_idx`,
+            ba.`idx`,
+            ba.`link`,
+            ba.`adult_pavilion`
+        FROM <include refid="database"/>`banner_mapping` AS bama
+        JOIN <include refid="database"/>`banner` AS ba
+            ON bama.`banner_idx` = ba.`idx`
+        <where>
+            bama.`idx` = #{bannerMappingIdx}
+        </where>
+
+    </select>
+
+</mapper>

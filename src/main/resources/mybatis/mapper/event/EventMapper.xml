@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.event.EventDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 이벤트 참여 내역 등록 -->
+    <insert id="insertFreeViewInfo" parameterType="PurchaseDto">
+        INSERT INTO <include refid="database" />`event_2024_newyear_view`
+        <set>
+            `member_idx`    = #{memberIdx},
+            `contents_idx`  = #{contentsIdx},
+            `episode_idx`   = #{episodeIdx},
+            `type`          = #{type},
+            `route`         = #{route},
+            `user_type`     = #{userType},
+            `state`         = 1,
+            `expiredate`    = #{expiredate},
+            `expiredate_tz` = '${convertTZ}',
+            `regdate`       = #{nowDate},
+            `regdate_tz`    = '${convertTZ}'
+        </set>
+    </insert>
+
+    <!-- 이벤트 참여 통계 집계 -->
+    <insert id="insertFreeViewStat" parameterType="PurchaseDto">
+        INSERT INTO <include refid="database"/>`event_2024_newyear_stat`
+        <set>
+            `date`          = #{nowDate},
+            `contents_idx`  = #{contentsIdx},
+            `view_cnt`      = #{viewCnt}
+        </set>
+        ON DUPLICATE KEY UPDATE
+        `view_cnt` = `view_cnt` + #{viewCnt}
+    </insert>
+</mapper>

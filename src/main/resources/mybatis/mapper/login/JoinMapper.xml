@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.login.JoinDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+    <!-- 회원 등록하기 -->
+    <insert id="insert" parameterType="MemberDto" useGeneratedKeys="true" keyProperty="insertedIdx">
+        INSERT INTO <include refid="database" />`member`
+        <set>
+            <if test="site != null">
+                `site`    = #{site},
+            </if>
+            <if test="joinType != null">
+                `join_type`    = #{joinType},
+            </if>
+            `id`             = #{id},
+            `password`       = #{password},
+            `join_ip`        = #{joinIp},
+            `state`          = 1,
+            `is_simple`      = #{isSimple},
+            `regdate`        = #{regdate},
+            `regdate_tz`     = '${convertTZ}',
+            `modify_date`    = #{modifyDate},
+            `modify_date_tz` = '${convertTZ}'
+        </set>
+    </insert>
+
+    <!-- 회원 정보 등록하기 -->
+    <insert id="insertInfo" parameterType="MemberDto" useGeneratedKeys="true" >
+        INSERT INTO <include refid="database" />`member_info`
+        <set>
+            `member_idx` = #{memberIdx},
+            `email`      = #{email},
+            `phone`      = #{phone},
+            `gender`     = #{gender},
+            `lang`       = 'ko',
+            `birth`      = #{birth}
+        </set>
+    </insert>
+
+    <!-- 간편 회원가입 등록하기 -->
+    <insert id="insertSimple" parameterType="MemberDto" useGeneratedKeys="true" >
+        INSERT INTO <include refid="database" />`member_simple`
+        <set>
+            `member_idx`        = #{memberIdx},
+            `simple_type`       = #{simpleType},
+            `auth_token`        = #{authToken}
+        </set>
+    </insert>
+
+    <!-- OTT회원 등록하기 -->
+    <insert id="insertMemberOtt" parameterType="MemberOttDto">
+        INSERT INTO <include refid="database" />`member_ott`
+        <set>
+            `member_idx`    = #{memberIdx},
+            `id`            = #{ottId},
+            `site`          = #{site},
+            `banner_code`   = #{bannerCode},
+            `event_type`    = #{eventType},
+            `point`         = #{point},
+            `send_msg`      = #{sendMsg},
+            `return_url`    = #{returnUrl},
+            `state`         = 0,
+            `regdate`       = #{regdate},
+            `regdate_tz`    = '${convertTZ}'
+        </set>
+    </insert>
+
+    <!-- OTT 회원 정보 업데이트 -->
+    <update id="updateMemberOtt" parameterType="MemberOttDto">
+        UPDATE <include refid="database"/>`member_ott`
+        <set>
+            <if test="sendMsg != null">
+                `send_msg`  = #{sendMsg},
+            </if>
+            `return_msg`    = #{returnMsg},
+            `state`         = 1
+        </set>
+        WHERE
+        `member_idx`   = #{memberIdx}
+    </update>
+
+    <!-- 통계정보 insert -->
+    <insert id="insertEventOtt" parameterType="MemberOttDto">
+        INSERT INTO <include refid="database"/>`event_ott`
+        <set>
+            `date`          = #{today},
+            `site`           = #{site},
+            `banner_code`    = #{bannerCode},
+            `visit`          = #{visit},
+            `join`           = #{join},
+            `point`          = #{point},
+            `coupon_cnt`     = #{couponCnt}
+        </set>
+        ON DUPLICATE KEY UPDATE
+            `visit`          = `visit` + #{visit},
+            `join`           = `join` + #{join},
+            `point`          = `point` + #{point},
+            `coupon_cnt`     = `coupon_cnt` + #{couponCnt}
+    </insert>
+
+    <!-- 이벤트 LOG 등록하기 -->
+    <insert id="insertEventLog" parameterType="MemberOttDto">
+        INSERT INTO <include refid="database" />`event_log`
+        <set>
+            `member_idx`    = #{memberIdx},
+            `event_type`    = #{eventType},
+            `point`         = #{point},
+            `state`         = 1,
+            `regdate`       = #{regdate},
+            `regdate_tz`    = '${convertTZ}'
+        </set>
+    </insert>
+</mapper>

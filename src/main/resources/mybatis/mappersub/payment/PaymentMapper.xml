@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.payment.PaymentDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+
+    <sql id="paymentMethodColumns">
+        `pame`.`idx`,
+        `pame`.`pg_name`,
+        `pame`.`mcht_id`,
+        `pame`.`method_type`,
+        `pame`.`method`,
+        `pame`.`license_key`,
+        `pame`.`aes256_key`,
+        `pame`.`mcht_name`,
+        `pame`.`noti_url`,
+        `pame`.`payment_server`,
+        `pame`.`cancel_server`,
+        `pame`.`method`,
+        `pame`.`mcht_e_name`,
+        `pame`.`corp_pay_code`
+    </sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 회원 결제내역 개수 -->
+    <select id="getPaymentTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`pa`.`idx`) AS `totalCnt`
+        FROM `payment` AS `pa`
+        JOIN `member` AS `me`
+            ON `me`.idx = `pa`.`member_idx`
+        JOIN `product` AS `pr`
+            ON `pr`.`idx` = `pa`.`product_idx`
+        WHERE
+                `member_idx` = #{idx}
+        <if test="startDate != null and endDate != null">
+            AND `pa`.`regdate` <![CDATA[ >= ]]> #{startDate}
+            AND `pa`.`regdate` <![CDATA[ <= ]]> #{endDate}
+        </if>
+    </select>
+
+    <!-- 회원 결제내역 리스트 -->
+    <select id="getPaymentList" parameterType="SearchDto" resultType="PaymentDto">
+        SELECT
+            `pr`.`title`,
+            (`pa`.`coin` + `pa`.`coin_free`) AS `coin`,
+            `pa`.`mileage`,
+            `pa`.`order_no`,
+            `pa`.`pay`,
+            `pa`.`pay_type`,
+            `pa`.`pay_method`,
+            `pa`.`state`,
+            IFNULL(CONVERT_TZ(`pa`.`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`
+        FROM `payment` AS `pa`
+        JOIN `member` AS `me`
+            ON `me`.idx = `pa`.`member_idx`
+        JOIN `product` AS `pr`
+            ON `pr`.`idx` = `pa`.`product_idx`
+        WHERE
+                `member_idx` = #{idx}
+        <if test="startDate != null and endDate != null">
+            AND `pa`.`regdate` <![CDATA[ >= ]]> #{startDate}
+            AND `pa`.`regdate` <![CDATA[ <= ]]> #{endDate}
+        </if>
+        ORDER BY `pa`.`regdate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 정상 결제수단 리스트 -->
+    <select id="getPaymentMethodList" parameterType="PaymentMethodDto" resultType="PaymentMethodDto">
+        SELECT
+            <include refid="paymentMethodColumns" />
+        FROM <include refid="database" />`payment_method` AS `pame`
+        WHERE
+            `pame`.`state` = 1
+    </select>
+    <!-- 정상 결제수단 정보-->
+    <select id="getPaymentMethod" parameterType="PaymentMethodDto" resultType="PaymentMethodDto">
+        SELECT
+            <include refid="paymentMethodColumns" />
+        FROM <include refid="database" />`payment_method` AS `pame`
+        WHERE
+                `pame`.`method_type`    = #{methodType}
+            AND `pame`.`state` = 1
+        LIMIT 1
+    </select>
+
+    <!-- 정상 결제수단 정보-->
+    <select id="getPaymentMethodKey" parameterType="PaymentMethodDto" resultType="PaymentMethodDto">
+        SELECT
+        <include refid="paymentMethodColumns" />
+        FROM <include refid="database" />`payment_method` AS `pame`
+        WHERE
+                `pame`.`method`    = #{method}
+            AND
+                `pame`.`mcht_id`   = #{mchtId}
+            AND `pame`.`state`     = 1
+        LIMIT 1
+    </select>
+
+    <!-- 정상 결제수단 정보-->
+    <select id="getPaymentMethodNoti" parameterType="PaymentMethodDto" resultType="PaymentMethodDto">
+        SELECT
+        <include refid="paymentMethodColumns" />
+        FROM <include refid="database" />`payment_method` AS `pame`
+        WHERE
+                `pame`.`method_noti`    = #{methodNoti}
+            AND
+                `pame`.`mcht_id`        = #{mchtId}
+            AND `pame`.`state` = 1
+        LIMIT 1
+    </select>
+
+    <!-- 회원 결제 내역 리스트 -->
+    <select id="getPayment" parameterType="PaymentDto" resultType="PaymentDto">
+        SELECT
+            (`pa`.`coin` + `pa`.`coin_free`) AS `coin`,
+            `pa`.`mileage`,
+            `pa`.`order_no`,
+            TRUNCATE(`pa`.`pay`, 0) as pay,
+            `pa`.`pay_type`,
+            `pa`.`pay_method`,
+            `pa`.`state`,
+            IFNULL(CONVERT_TZ(`pa`.`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`
+        FROM `payment` AS `pa`
+        WHERE
+            `tid` = #{tid}
+        LIMIT 1
+    </select>
+
+    <!-- 회원 결제 내역 개수 조회 -->
+    <select id="getPaymentCnt" parameterType="Long" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `paymentInfoCnt`
+        FROM <include refid="database"/> `payment`
+        WHERE
+            `member_idx` = #{memberIdx}
+    </select>
+
+    <!-- 회원 결제 내역 조회 (최근 30일) -->
+    <select id="getMemberPaymentList" parameterType="Long" resultType="PaymentDto">
+        SELECT
+            (`coin` + `coin_free`) AS `coin`,
+            `mileage`,
+            `order_no`,
+            TRUNCATE(`pay`, 0) as pay,
+            `pay_type`,
+            `pay_method`,
+            `state`,
+            IFNULL(CONVERT_TZ(`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`
+        FROM <include refid="database"/> `payment`
+        WHERE
+            `member_idx` = #{memberIdx}
+    </select>
+</mapper>

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.content.ContentDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 작품 찜하기 -->
+    <insert id="favoriteContent" parameterType="ContentDto">
+        INSERT INTO <include refid="database"/>`member_favorite_contents`
+        SET
+            `member_idx`    = #{memberIdx},
+            `contents_idx`  = #{contentsIdx},
+            `regdate`       = #{regdate},
+            `regdate_tz`    = '${convertTZ}'
+    </insert>
+
+    <!-- 작품 신고하기 -->
+    <insert id="insertContentReport" parameterType="ContentDto">
+        INSERT INTO <include refid="database"/>`contents_report`
+        SET
+            `member_idx`    = #{memberIdx},
+            `contents_idx`  = #{contentsIdx},
+            `state`         = #{state},
+            `regdate`       = #{regdate},
+            `regdate_tz`    = '${convertTZ}'
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 작품 찜 개수 업데이트 -->
+    <insert id="updateFavoriteCnt" parameterType="ContentDto">
+        UPDATE <include refid="database"/>`contents_info`
+        SET
+            `favorite`     = #{favorite}
+        WHERE
+            `contents_idx` = #{contentsIdx}
+    </insert>
+
+    <!-- 작품 조회수 증가 -->
+    <update id="updateViewCnt" parameterType="ContentDto">
+        UPDATE <include refid="database"/>`contents_info`
+        SET
+            `view` = #{view}
+        WHERE
+            `contents_idx` = #{idx}
+    </update>
+
+    <!-- 컨텐츠 뷰 & 구매수 업데이트 -->
+    <update id="updateViewCntAndPurchase" parameterType="ContentDto">
+        UPDATE <include refid="database"/>`contents_info`
+        SET
+            `view` = #{view},
+            `purchase` = #{purchase}
+        WHERE
+            `idx` = #{idx}
+    </update>
+
+    <!-- ==============================================================
+        DELETE
+    =============================================================== -->
+
+    <!-- 관심 작품 리스트 삭제 -->
+    <delete id="deleteMemberFavoriteList" parameterType="SearchDto">
+        DELETE FROM <include refid="database"/>`member_favorite_contents`
+        WHERE
+                `idx` in
+            <foreach collection="idxList" item="idx" open="("  separator="," close=")">
+                #{idx}
+            </foreach>
+            AND `member_idx` = #{memberIdx}
+    </delete>
+
+    <!-- 작품 찜하기 취소 -->
+    <delete id="deleteFavoriteContent" parameterType="ContentDto">
+        DELETE FROM <include refid="database"/>`member_favorite_contents`
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `contents_idx` = #{contentsIdx}
+    </delete>
+
+</mapper>

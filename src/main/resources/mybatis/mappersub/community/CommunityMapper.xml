@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.community.CommunityDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 커뮤니티 ResultMap  -->
+    <resultMap id="content_rm" type="CommunityContentDto">
+        <!-- 커뮤니티 게시물 idx -->
+        <result property="idx" column="idx"/>
+        <!-- 게시물 이미지 리스트 -->
+        <collection property="imageList" column="{idx=idx}" javaType="ArrayList" ofType="" select="getContentImgList" />
+        <!-- 좋아요 누른 게시글 카운트(0:좋아요 안함, 1: 좋아요) -->
+        <collection property="memberLike"  column="{idx=idx, loginIdx=loginIdx}" javaType="Integer" ofType="" select="getIsContentLike"/>
+    </resultMap>
+
+    <!-- 게시물 상세 ResultMap  -->
+    <resultMap id="contentInfo_rm" type="ContentDto">
+        <!-- 컨텐츠 idx -->
+        <result property="contentsIdx" column="contentsIdx"/>
+        <!-- 글작가 리스트 -->
+        <collection property="writerList"  column="contentsIdx" javaType="ArrayList" ofType="" select="getWriterList"/>
+        <!-- 그림작가 리스트 -->
+        <collection property="painterList" column="contentsIdx" javaType="ArrayList" ofType="" select="getPainterList"/>
+        <!-- 태그 리스트  -->
+        <collection property="tagList" column="contentsIdx" javaType="ArrayList" ofType="" select="getTagList"/>
+        <!-- 세로 이미지 리스트 -->
+        <collection property="contentHeightImgList" column="{contentsIdx=contentsIdx}" javaType="ArrayList" ofType="" select="getContentHeightImgList" />
+    </resultMap>
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 유효한 커뮤니티 게시물 idx 인지 조회 -->
+    <select id="getContentsCnt" parameterType="Long" resultType="int">
+        SELECT
+            COUNT(`coco`.`idx`) AS `contentsCnt`
+        FROM <include refid="database"/>`community_contents` AS `coco`
+        JOIN <include refid="database"/>`community_contents_info` AS `cocoin`
+        ON `coco`.`idx` = `cocoin`.`community_contents_idx`
+        WHERE
+                `coco`.`idx`     = #{idx}
+            AND `coco`.`state`   = 1
+            AND `cocoin`.`state` = 1
+    </select>
+
+    <!-- 게시물 신고 한적 있는지 조회 -->
+    <select id="getReportCnt" parameterType="CommunityCommentDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `reportCnt`
+        FROM <include refid="database"/>`community_contents_report`
+        WHERE
+                `community_contents_idx` = #{idx}
+            AND `member_idx` = #{memberIdx}
+            AND `state` = 1
+    </select>
+
+    <!-- 게시물 신고 리스트 조회 -->
+    <select id="getContentsReportList" parameterType="Long" resultType="Long">
+        SELECT
+            `community_contents_idx`
+        FROM <include refid="database"/>`community_contents_report`
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND `state` = 1
+    </select>
+
+    <!-- 게시물 작성자 idx 조회 -->
+    <select id="getContentWriterIdx" parameterType="Long" resultType="Long">
+        SELECT
+            `member_idx`
+        FROM <include refid="database"/>`community_contents`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 게시물 좋아요 한적 있는지 조회  -->
+    <select id="getMemContentLikeState" parameterType="CommunityContentDto" resultType="Integer">
+        SELECT
+            `state`
+        FROM <include refid="database"/>`community_contents_like`
+        WHERE
+                `member_idx`             = #{memberIdx}
+            AND `community_contents_idx` = #{idx}
+    </select>
+
+    <!-- 게시물 성인 여부 조회 -->
+    <select id="getContentsAdult" parameterType="Long" resultType="int">
+        SELECT
+            `adult`
+        FROM <include refid="database"/>`community_contents`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 게시물 이미지 조회 -->
+    <select id="getContentImage" parameterType="Long" resultType="CommunityImageDto">
+        SELECT
+            `path`,
+            `filename`,
+            `url`,
+            `width`,
+            `height`
+        FROM <include refid="database"/>`community_contents_img`
+        WHERE
+                `community_contents_idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 게시물 개수 카운트-->
+    <select id="getContentsTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`coco`.`idx`) AS `totalCnt`
+        FROM <include refid="database"/>`community_contents` AS `coco`
+        JOIN <include refid="database"/>`community_contents_info` AS `cocoin`
+        ON `coco`.`idx` = `cocoin`.`community_contents_idx`
+        LEFT JOIN <include refid="database"/>`community_contents_img` AS `cocoim`
+        ON `coco`.`idx` = `cocoim`.`community_contents_idx`
+        JOIN <include refid="database"/>`community_category` AS `coca`
+        ON `coco`.`category_idx` = `coca`.`idx`
+        JOIN <include refid="database"/>`member` AS `me`
+        ON `coco`.`member_idx` = `me`.`idx`
+        WHERE
+                `coco`.`state` = 1
+            AND `cocoin`.`state` = 1
+        <if test="idxList != null and idxList.size != 0">
+            AND `coco`.`idx` NOT IN
+            <foreach collection="idxList" item="idx" open="("  separator="," close=")">
+                #{idx}
+            </foreach>
+        </if>
+        <if test="categoryIdx != null and categoryIdx > 0">
+            AND `coco`.`category_idx` = #{categoryIdx}
+        </if>
+        <if test="adult == null || adult == 0">
+            AND `coco`.`adult` != 1
+        </if>
+        <choose>
+            <when test="searchWord != null and searchWord != ''">
+                <bind name="val" value="'%' + searchWord + '%'"/>
+                AND (
+                `coco`.`title` LIKE #{val}
+                OR `me`.`nick` LIKE #{val}
+                )
+            </when>
+        </choose>
+    </select>
+
+    <!-- 게시물 리스트 -->
+    <select id="getContentList" parameterType="SearchDto" resultMap="content_rm">
+        SELECT
+            `coco`.`idx`,
+            `coco`.`title`,
+            `coco`.`content`,
+            `coco`.`adult`,
+            CONVERT_TZ(`coco`.`regdate`, 'UTC', '${convertTZ}') AS `regdate`,
+            `cocoin`.`view_cnt`,
+            `cocoin`.`like_cnt`,
+            `cocoin`.`comment_cnt`,
+            `coca`.`name` AS `category`,
+            `me`.`nick`,
+            #{memberIdx} AS `loginIdx`
+        FROM <include refid="database"/>`community_contents` AS `coco`
+        JOIN <include refid="database"/>`community_contents_info` AS `cocoin`
+            ON `coco`.`idx` = `cocoin`.`community_contents_idx`
+        LEFT JOIN <include refid="database"/>`community_contents_img` AS `cocoim`
+            ON `coco`.`idx` = `cocoim`.`community_contents_idx`
+        JOIN <include refid="database"/>`community_category` AS `coca`
+            ON `coco`.`category_idx` = `coca`.`idx`
+        JOIN <include refid="database"/>`member` AS `me`
+            ON `coco`.`member_idx` = `me`.`idx`
+        WHERE
+                `coco`.`state` = 1
+            AND `cocoin`.`state` = 1
+        <if test="idxList != null and idxList.size!=0">
+            AND `coco`.`idx` NOT IN
+            <foreach collection="idxList" item="idx" open="("  separator="," close=")">
+                #{idx}
+            </foreach>
+        </if>
+        <if test="categoryIdx != null and categoryIdx > 0">
+            AND `coco`.`category_idx` = #{categoryIdx}
+        </if>
+        <if test="adult == null || adult == 0">
+            AND `coco`.`adult` != 1
+        </if>
+        <choose>
+            <when test="searchWord != null and searchWord != ''">
+                <bind name="val" value="'%' + searchWord + '%'"/>
+                AND (
+                    `coco`.`title` LIKE #{val}
+                    OR `me`.`nick` LIKE #{val}
+                )
+            </when>
+        </choose>
+        <if test="sortType != null and sortType > 0">
+            <choose>
+                <when test="sortType == 1">
+                    ORDER BY `coco`.`regdate` DESC
+                </when>
+                <when test="sortType == 2">
+                    ORDER BY `cocoin`.`like_cnt` DESC
+                </when>
+                <when test="sortType == 3">
+                    ORDER BY `cocoin`.`comment_cnt` DESC
+                </when>
+            </choose>
+        </if>
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 커뮤니티 게시물 상세 -->
+    <select id="getContentInfo" parameterType="SearchDto" resultMap="content_rm">
+        SELECT
+            `coco`.`idx`,
+            `coco`.`contents_idx`,
+            `coco`.`title`,
+            `coco`.`content`,
+            `coco`.`adult`,
+            `coco`.`regdate`,
+            `cocoin`.`view_cnt`,
+            `cocoin`.`like_cnt`,
+            `cocoin`.`comment_cnt`,
+            `coca`.`name` AS `category`,
+            `me`.`nick`,
+            #{memberIdx} AS `loginIdx`
+        FROM `community_contents` AS `coco`
+        JOIN `community_contents_info` AS `cocoin`
+            ON `coco`.`idx` = `cocoin`.`community_contents_idx`
+        LEFT JOIN `community_contents_img` AS `cocoim`
+            ON `coco`.`idx` = `cocoim`.`community_contents_idx`
+        JOIN `community_category` AS `coca`
+            ON `coco`.`category_idx` = `coca`.`idx`
+        JOIN `member` AS `me`
+            ON `coco`.`member_idx` = `me`.`idx`
+        WHERE
+                `coco`.`state` = 1
+            AND `cocoin`.`state` = 1
+            AND `coco`.`idx` = #{idx}
+    </select>
+
+    <!-- 컨텐츠 상세 내용 -->
+    <select id="getContent" parameterType="ContentDto" resultMap="contentInfo_rm">
+        SELECT
+            `co`.`idx` AS `contentsIdx`,
+            `co`.`title`,
+            `co`.`description`,
+            `co`.`adult`,
+            `co`.`adult_pavilion`,
+            `ca`.`name` AS `category`,
+            `ge`.`name` AS `genre`
+        FROM `contents` AS `co`
+        JOIN `category` AS `ca`
+            ON `ca`.`idx` = `co`.`category_idx`
+        JOIN `genre` AS `ge`
+            ON `ge`.`idx` = `co`.`genre_idx`
+        WHERE
+                `co`.`idx` = #{idx}
+            AND `co`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+    </select>
+
+    <!-- ==============================================================
+        COLLECTION
+    =============================================================== -->
+
+    <!-- 게시물 이미지 리스트 -->
+    <select id="getContentImgList" parameterType="HashMap" resultType="CommunityImageDto">
+        SELECT
+            `url`,
+            `width`,
+            `height`,
+            `sort`
+        FROM <include refid="database"/>`community_contents_img`
+        WHERE
+                `community_contents_idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 컨텐츠 글작가 리스트 -->
+    <select id="getWriterList" parameterType="Integer" resultType="AuthorDto">
+        SELECT
+            `au`.`name`
+        FROM <include refid="database" />`author_mapping` AS `auma`
+        JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx`
+        WHERE
+                `auma`.`contents_idx` = #{contentsIdx}
+            AND `auma`.`type` = 1
+            AND `auma`.`state` = 1
+            AND `au`.`state` = 1
+    </select>
+
+    <!-- 컨텐츠 그림작가 리스트 -->
+    <select id="getPainterList" parameterType="Integer" resultType="AuthorDto">
+        SELECT
+            `au`.`name`
+        FROM <include refid="database" />`author_mapping` AS `auma`
+        JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx`
+        WHERE
+                `auma`.`contents_idx` = #{contentsIdx}
+            AND `auma`.`type` = 2
+            AND `auma`.`state` = 1
+            AND `au`.`state` = 1
+    </select>
+
+    <!-- 태그 리스트 -->
+    <select id="getTagList" parameterType="Integer" resultType="TagDto">
+        SELECT
+            `ta`.`name`
+        FROM <include refid="database" />`tag_mapping` AS `tama`
+        JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx`
+        WHERE
+                `tama`.`contents_idx` = #{contentsIdx}
+            AND `tama`.`state` = 1
+            AND `ta`.`state` = 1
+    </select>
+
+    <!-- 컨텐츠 세로 이미지 리스트 -->
+    <select id="getContentHeightImgList" parameterType="HashMap" resultType="ContentImgDto">
+        SELECT
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`contents_img` AS `coim`
+        WHERE
+                `coim`.`contents_idx` = #{contentsIdx}
+            AND `coim`.`state`  = 1
+            AND `coim`.`device` = 'origin'
+            AND `coim`.`type`   = 'height'
+    </select>
+
+    <!-- 게시물 좋아요 유무 조회 (comment_like 테이블) -->
+    <select id="getIsContentLike" parameterType="HashMap" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `memberLike`
+        FROM <include refid="database"/>`community_contents_like`
+        WHERE
+                `member_idx`             = #{loginIdx}
+            AND `community_contents_idx` = #{idx}
+            AND `state`                  = 1
+    </select>
+
+</mapper>

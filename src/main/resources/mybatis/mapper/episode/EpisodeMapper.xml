@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.episode.EpisodeDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 최근 본 작품 등록 -->
+    <insert id="insertMemberLastView" parameterType="episodeDto">
+        INSERT INTO <include refid="database"/>`member_last_view`
+        SET
+            `member_idx`        = #{memberIdx},
+            `contents_idx`      = #{contentIdx},
+            `episode_number`    = #{sort},
+            `episode_idx`       = #{idx},
+            `regdate`           = #{regdate},
+            `regdate_tz`        = '${convertTZ}'
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 회차 뷰 카운트 업데이트 -->
+    <update id="updateViewCnt" parameterType="EpisodeDto">
+        UPDATE <include refid="database"/>`episode_info`
+        SET
+            `view` = #{view}
+        WHERE
+            `episode_idx` = #{idx}
+    </update>
+
+    <!-- 최근 본 작품 업데이트 -->
+    <update id="updateMemberLastView" parameterType="EpisodeDto">
+        UPDATE <include refid="database"/>`member_last_view`
+        SET
+            `episode_number`    = #{sort},
+            `episode_idx`       = #{idx},
+            `regdate`           = #{regdate},
+            `regdate_tz`        = '${convertTZ}'
+        WHERE
+                `contents_idx`  = #{contentIdx}
+            AND `member_idx`    = #{memberIdx}
+    </update>
+
+    <!-- ==============================================================
+        DELETE
+    =============================================================== -->
+
+    <!-- 최근 본 작품 리스트 삭제 -->
+    <delete id="deleteMemberLastViewList" parameterType="SearchDto">
+        DELETE FROM <include refid="database"/>`member_last_view`
+        WHERE
+                `idx` in
+            <foreach collection="idxList" item="idx" open="("  separator="," close=")">
+                #{idx}
+            </foreach>
+            AND `member_idx` = #{memberIdx}
+    </delete>
+</mapper>

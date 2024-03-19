@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.notification.NotificationDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 충전 완료 알림 전송 -->
+    <insert id="insertChargeNotification" parameterType="NotificationDto">
+        INSERT INTO <include refid="database" /> member_notification
+        <set>
+            `member_idx`        = #{memberIdx},
+            `category`          = #{category},
+            `type`              = #{type},
+            `type_idx`          = #{typeIdx},
+            `title`             = #{title},
+            `state`             = #{state},
+            `regdate`           = #{regdate},
+            `regdate_tz`        = '${convertTZ}'
+        </set>
+    </insert>
+
+    <!-- 공지사항 알림 전송 -->
+    <insert id="insertNoticeNotification" parameterType="NotificationDto">
+        INSERT INTO <include refid="database"/>`member_notification`
+        (
+            `member_idx`,
+            `category`,
+            `type`,
+            `type_idx`,
+            `state`,
+            `regdate`,
+            `regdate_tz`
+        ) VALUES
+            <foreach collection="list" item="item" separator=",">
+                (
+                    #{item.memberIdx},
+                    #{item.category},
+                    #{item.type},
+                    #{item.typeIdx},
+                    #{item.state},
+                    #{item.regdate},
+                    '${convertTZ}'
+                )
+            </foreach>
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 회원이 확인한 알림 읽음 표시 -->
+    <update id="updateCheckDate" parameterType="NotificationDto">
+        UPDATE <include refid="database"/>`member_notification`
+        SET
+            `checkdate`    = #{checkDate},
+            `checkdate_tz` = '${convertTZ}'
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `idx` = #{idx}
+            AND `state` = 1
+        LIMIT 1
+    </update>
+
+    <!-- ==============================================================
+        DELETE
+    =============================================================== -->
+
+    <!-- 회원이 선택한 알림 목록 삭제 -->
+    <update id="deleteNotification" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="affectedRow">
+        <foreach collection="list" item="item" open="" close="" separator=";">
+            UPDATE <include refid="database"/>`member_notification`
+            SET
+                `state` = 0,
+                `deldate` = #{item.delDate},
+                `deldate_tz` = '${convertTZ}'
+            WHERE
+                `member_idx` = #{item.memberIdx}
+                AND `idx` = #{item.idx}
+                AND `state` = 1
+        </foreach>
+    </update>
+
+</mapper>

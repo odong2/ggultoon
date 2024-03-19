@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.setting.SettingDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 환경설정 정보 등록 -->
+    <insert id="insertMemberSetting" parameterType="java.util.List">
+        INSERT INTO <include refid="database"/>`member_setting`
+        (
+            `member_idx`,
+            `setting_idx`,
+            `state`,
+            `regdate`,
+            `regdate_tz`
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.memberIdx},
+                #{item.settingIdx},
+                #{item.state},
+                #{item.regdate},
+                '${convertTZ}'
+            )
+        </foreach>
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 환경설정 상태 변경 -->
+    <update id="modifyMemberSetting" parameterType="SettingDto">
+        UPDATE <include refid="database"/>`member_setting`
+        SET
+            `state`          = #{state},
+            `modify_date`    = #{modifyDate},
+            `modify_date_tz` = '${convertTZ}'
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `setting_idx` = #{settingIdx}
+    </update>
+
+</mapper>

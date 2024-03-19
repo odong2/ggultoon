@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.member.MemberDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 닉네임 변경 -->
+    <update id="modifyNick" parameterType="MemberDto">
+        UPDATE <include refid="database"/>`member`
+        SET
+            `nick` = #{nick}
+        WHERE
+            `idx`   = #{idx}
+            AND `state` = 1
+    </update>
+
+    <!-- 비밀번호 변경 -->
+    <update id="modifyPasswordLogin" parameterType="MemberDto">
+        UPDATE <include refid="database"/>`member`
+        SET
+            `password`      = #{newPassword},
+            `modify_date`   = #{modifyDate}
+        WHERE
+            `idx`   = #{idx}
+            AND `state` = 1
+    </update>
+
+    <!-- 비밀번호 찾기 성공 > 비밀번호 재설정 -->
+    <update id="modifyPasswordNonLogin" parameterType="MemberDto">
+        UPDATE <include refid="database"/>`member`
+        SET
+            `password` = #{newPassword},
+            `modify_date`   = #{modifyDate}
+        WHERE
+            `id`   = #{id}
+            AND `state` = 1
+    </update>
+
+    <!-- 회원 탈퇴(member 테이블)-->
+    <update id="deleteMember" parameterType="long">
+        UPDATE <include refid="database"/>`member`
+        SET
+            `state` = 0
+        WHERE
+            `idx`   = #{memberIdx}
+            AND `state` = 1
+    </update>
+
+    <!--회원 탈퇴(member_info 테이블)-->
+    <update id="deleteMemberInfo" parameterType="long">
+        UPDATE <include refid="database"/>`member_info`
+        SET
+            `state` = 0
+        WHERE
+            `member_idx`   = #{memberIdx}
+            AND `state`        = 1
+    </update>
+
+    <!-- 회원 정보 업데이트 -->
+    <update id="updateMemberInfo" parameterType="MemberDto">
+        UPDATE <include refid="database"/>`member_info`
+        SET
+            `member_idx`   = #{memberIdx},
+            `email`        = #{email},
+            `state`        = 1
+        WHERE
+            `txseq`        = #{txseq}
+            AND `member_idx`    = 0
+    </update>
+
+    <!-- 회원 탈퇴 혜택 받음 설정 -->
+    <update id="updateDeleteBenefit" parameterType="Long">
+        UPDATE <include refid="database"/>`member`
+        SET
+            `is_benefit` = 1
+        WHERE
+                `idx` = #{memberIdx}
+            AND `is_benefit` = 0
+    </update>
+
+    <!-- 코인 알림 받지 않음 설정 -->
+    <update id="modifyCoinAlarm" parameterType="Long">
+        UPDATE <include refid="database"/>`member_setting`
+        SET
+            `state` = 1
+        WHERE
+                `member_idx` = #{idx}
+            AND `setting_idx` = 1
+    </update>
+
+    <!-- 성인인증 변경 -->
+    <update id="modifyAdult" parameterType="MemberDto">
+        UPDATE <include refid="database"/>`member`
+        SET
+            `adult` = #{adult}
+        WHERE
+                `idx`   = #{idx}
+            AND `state` = 1
+            AND `adult` = 0
+    </update>
+
+    <!-- 회원 마케팅 수신 동의 상태값 변경 -->
+    <update id="updateMemberMarketing" parameterType="SettingDto">
+        UPDATE <include refid="database"/>`member_policy`
+        SET
+            `state`      = #{stateText},
+            `regdate`    = #{regdate},
+            `regdate_tz` = '${convertTZ}'
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `policy` = 'marketing'
+    </update>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 회원 탈퇴 테이블 insert-->
+    <insert id="insertOutMember" parameterType="MemberDto">
+        INSERT INTO <include refid="database"/>`member_out`
+        SET
+            `member_idx` = #{idx},
+            `id`         = #{id},
+            `nick`       = #{nick},
+            `state`      = 1,
+            `outdate`    = #{outdate},
+            `outdate_tz` = '${convertTZ}'
+    </insert>
+
+    <!-- 회원 정보 테이블 insert-->
+    <insert id="insertMemberInfo" parameterType="MemberDto">
+        INSERT INTO <include refid="database"/>`member_info`
+        SET
+            `txseq`      = #{txseq},
+            `birth`      = #{birth},
+            `gender`     = #{gender},
+            `ci`         = #{ci},
+            `di`         = #{di},
+            `name`       = #{name},
+            `phone`      = #{phone},
+            `ip`         = #{ip},
+            `regdate`    = #{regdate},
+            `regdate_tz` = '${convertTZ}'
+    </insert>
+
+    <!-- 간편가입 탈퇴 insert -->
+    <insert id="insertMemberSimpleOut" parameterType="MemberSimpleDto">
+        INSERT INTO <include refid="database"/>`member_simple_out`
+        SET
+            `member_idx`  = #{memberIdx},
+            `simple_type` = #{simpleType},
+            `auth_token`  = #{authToken}
+    </insert>
+
+    <!-- 회원정책동의 insert -->
+    <insert id="insertMemberPolicy" parameterType="MemberDto">
+        INSERT INTO <include refid="database"/>`member_policy`
+        (
+            member_idx,
+            policy,
+            state,
+            regdate,
+            regdate_tz
+         )values
+        <trim suffixOverrides=",">
+            <if test="@com.architecture.admin.libraries.utils.CommonUtils@notEmpty(age)">
+                (
+                #{memberIdx},
+                'age',
+                #{age},
+                #{regdate},
+                '${convertTZ}'
+                ),
+            </if>
+            <if test="@com.architecture.admin.libraries.utils.CommonUtils@notEmpty(privacy)">
+                (
+                #{memberIdx},
+                'privacy',
+                #{privacy},
+                #{regdate},
+                '${convertTZ}'
+                ),
+            </if>
+            <if test="@com.architecture.admin.libraries.utils.CommonUtils@notEmpty(marketing)">
+                (
+                #{memberIdx},
+                'marketing',
+                #{marketing},
+                #{regdate},
+                '${convertTZ}'
+                ),
+            </if>
+
+        </trim>
+    </insert>
+
+    <!-- 본인인증 로그 insert -->
+    <insert id="insertLog" parameterType="map">
+        INSERT INTO <include refid="database"/>`member_identification_log`
+        SET
+            `information`   = #{information},
+            `regdate`       = #{regdate},
+            `regdate_tz`    = '${convertTZ}'
+    </insert>
+
+    <!-- adid insert -->
+    <insert id="insertAdid" parameterType="MemberAppDto">
+        INSERT INTO <include refid="database"/>`member_app_adid`
+        SET
+            `member_idx`     = #{memberIdx},
+            `adid`           = #{adid},
+            `regdate`        = #{regdate},
+            `regdate_tz`     = '${convertTZ}'
+        ON DUPLICATE KEY UPDATE
+            `member_idx`     = #{memberIdx},
+            `adid`           = #{adid},
+            `modify_date`    = #{regdate},
+            `modify_date_tz` = '${convertTZ}'
+    </insert>
+
+    <!-- FCM token insert -->
+    <insert id="insertAppToken" parameterType="MemberAppDto">
+        INSERT INTO <include refid="database"/>`member_app_token`
+        SET
+        `member_idx`     = #{memberIdx},
+        `token`          = #{token},
+        `regdate`        = #{regdate},
+        `regdate_tz`     = '${convertTZ}'
+        ON DUPLICATE KEY UPDATE
+        `member_idx`     = #{memberIdx},
+        `token`          = #{token},
+        `modify_date`    = #{regdate},
+        `modify_date_tz` = '${convertTZ}'
+    </insert>
+
+</mapper>

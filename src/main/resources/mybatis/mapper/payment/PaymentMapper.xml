@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.payment.PaymentDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 결제 로그 테이블 insert-->
+    <insert id="insertPayLog" parameterType="PaymentNotiDto">
+        INSERT INTO <include refid="database"/>`pay_log`
+        SET
+            `outStatCd`         = #{outStatCd},
+            `trdNo`             = #{trdNo},
+            `method`            = #{method},
+            `bizType`           = #{bizType},
+            `mchtId`            = #{mchtId},
+            `mchtTrdNo`         = #{mchtTrdNo},
+            `mchtCustNm`        = #{mchtCustNm},
+            `pmtprdNm`          = #{pmtprdNm},
+            `trdDtm`            = #{trdDtm},
+            `trdAmt`            = #{trdAmt},
+            `billKey`           = #{billKey},
+            `billKeyExpireDt`   = #{billKeyExpireDt},
+            `cardCd`            = #{cardCd},
+            `cardNm`            = #{cardNm},
+            `bankCd`            = #{bankCd},
+            `bankNm`            = #{bankNm},
+            `telecomCd`         = #{telecomCd},
+            `telecomNm`         = #{telecomNm},
+            `vAcntNo`           = #{vAcntNo},
+            `expireDt`          = #{expireDt},
+            `AcntPrintNm`       = #{AcntPrintNm},
+            `dpstrNm`           = #{dpstrNm},
+            `email`             = #{email},
+            `mchtCustId`        = #{mchtCustId},
+            `cardNo`            = #{cardNo},
+            `cardApprNo`        = #{cardApprNo},
+            `instmtMon`         = #{instmtMon},
+            `instmtType`        = #{instmtType},
+            `orgTrdNo`          = #{orgTrdNo},
+            `orgTrdDt`          = #{orgTrdDt},
+            `mixTrdNo`          = #{mixTrdNo},
+            `mixTrdAmt`         = #{mixTrdAmt},
+            `payAmt`            = #{payAmt},
+            `cnclType`          = #{cnclType},
+            `mchtParam`         = #{mchtParam},
+            `pktHash`           = #{pktHash},
+            `acntType`          = #{acntType},
+            `kkmAmt`            = #{kkmAmt},
+            `coupAmt`           = #{coupAmt}
+    </insert>
+
+    <!-- 결제 테이블 insert-->
+    <insert id="insertPayment" parameterType="PaymentDto" useGeneratedKeys="true" keyProperty="insertedId">
+        INSERT INTO <include refid="database"/>`payment`
+        SET
+            `product_idx`       = #{productIdx},
+            `member_idx`        = #{memberIdx},
+            `pay`               = #{pay},
+            `pay_type`          = #{payType},
+            `pay_method`        = #{payMethod},
+            `coin`              = #{coin},
+            `coin_free`         = #{coinFree},
+            `mileage`           = #{mileage},
+            `order_no`          = #{orderNo},
+            `state`             = 1,
+            `tid`               = #{tid},
+            `cp_id`             = #{cpId},
+            `regdate`           = #{regdate},
+            `regdate_tz`        = '${convertTZ}'
+    </insert>
+
+    <!-- payment_info 테이블 insert -->
+    <insert id="insertPaymentInfo" parameterType="PaymentDto">
+        INSERT INTO <include refid="database"/>`payment_info`
+        <set>
+            `payment_idx`       = #{idx},
+            `first`             = #{first},
+            `state`             = 1,
+            `regdate`           = #{regdate},
+            `regdate_tz`        = '${convertTZ}'
+        </set>
+    </insert>
+    <!-- payment_info 테이블 insert -->
+    <insert id="insertPaymentApp" parameterType="PaymentAppDto" useGeneratedKeys="true" keyProperty="insertedId">
+        INSERT INTO <include refid="database"/>`payment_app`
+        <set>
+            `payment_idx`           = #{paymentIdx},
+            `member_idx`            = #{memberIdx},
+            `ad_id`                 = #{adId},
+            `sim_operator`          = #{simOperator},
+            `installer_package_name`= #{installerPackageName},
+            `return_msg`            = #{returnMsg},
+            `state`                 = 1,
+            `regdate`               = #{regdate},
+            `regdate_tz`            = '${convertTZ}'
+        </set>
+    </insert>
+</mapper>

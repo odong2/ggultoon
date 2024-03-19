@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration >
+    <!--    해당 설정파일에서 사용하는 프로퍼티-->
+    <Properties>
+        <Property name="logNm">Spring Log4j2 Log</Property>
+        <Property name="layoutPattern">%style{%d{yyyy/MM/dd HH:mm:ss,SSS}}{cyan} %highlight{[%-5p]}{FATAL=bg_red, ERROR=red,
+            INFO=green, DEBUG=blue}  [%C] %style{[%t]}{yellow}- %m%n -</Property>
+    </Properties>
+    <!--    LogEvent를 전달해주는 Appender-->
+    <Appenders>
+        <Console name="Console_Appender" target="SYSTEM_OUT">
+            <PatternLayout pattern="${layoutPattern}" disableAnsi = "false"/>
+        </Console>
+        <RollingFile name="File_Appender" fileName="logs/log4j2/${logNm}.log" filePattern="logs/log4j2/${logNm}_%d{yyyy-MM-dd}_%i.log.gz">
+            <PatternLayout pattern="${layoutPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="200KB"/>
+                <TimeBasedTriggeringPolicy interval="1"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10" fileIndex="min"/>
+        </RollingFile>
+    </Appenders>
+    <!--    실제 Logger-->
+    <Loggers>
+        <Root level="WARN" additivity="false">
+            <AppenderRef ref="Console_Appender"/>
+            <AppenderRef ref="File_Appender"/>
+        </Root>
+        <!--Log4jdbc-->
+        <logger name="jdbc" level="WARN"/>
+        <logger name="com.zaxxer.hikari" level="debug" additivity="false">
+            <appender-ref ref="Console_Appender"/>
+        </logger>
+        <logger name="jdbc.sqlonly" level="WARN"/>
+        <logger name="jdbc.sqltiming" level="info" additivity="false">
+            <appender-ref ref="Console_Appender"/>
+        </logger>
+        <logger name="jdbc.audit" level="WARN"/>
+        <logger name="jdbc.resultsettable" level="info" additivity="false">
+            <appender-ref ref="Console_Appender"/>
+        </logger>
+    </Loggers>
+</Configuration>

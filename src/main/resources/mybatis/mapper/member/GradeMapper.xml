@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.member.GradeDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 회원 등급 등록 -->
+    <insert id="insertMemberGrade" parameterType="MemberGradeDto">
+        INSERT INTO <include refid="database"/>`member_grade`
+        <set>
+            idx = #{idx},
+            amount = #{amount},
+            grade = #{grade},
+            add_mileage = #{addMileage},
+            payback = #{payback}
+        </set>
+        ON DUPLICATE KEY UPDATE
+            amount = #{amount},
+            grade = #{grade},
+            add_mileage = #{addMileage},
+            payback = #{payback}
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 결제 금액 -->
+    <select id="getMemberPayment" parameterType="hashmap" resultType="Integer">
+        SELECT
+            IFNULL(sum(pa.`pay`), 0) AS amount
+        FROM <include refid="database"/>`payment` AS pa
+        <where>
+            <![CDATA[
+                pa.`member_idx` = #{memberIdx}
+            AND pa.`regdate` >= #{startDate}
+            AND pa.`regdate` <= #{endDate}
+            AND pa.`state` = 1
+            ]]>
+        </where>
+    </select>
+
+</mapper>

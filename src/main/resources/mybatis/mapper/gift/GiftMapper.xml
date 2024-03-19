@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.gift.GiftDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        선물 지급
+    =============================================================== -->
+
+    <!-- 회원 선물 지급 : save 테이블 등록 -->
+    <insert id="insertMemberGiftSave" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="saveIdx">
+        INSERT INTO <include refid="database"/>`member_contents_ticket_save`
+        (
+            `member_idx`,
+            `payment_idx`,
+            `contents_ticket_idx`,
+            `ticket_cnt`,
+            `state`,
+            `regdate`,
+            `regdate_tz`
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.memberIdx},
+                #{item.paymentIdx},
+                #{item.idx},
+                #{item.ticketCnt},
+                #{item.state},
+                #{item.regdate},
+                '${convertTZ}'
+            )
+        </foreach>
+    </insert>
+
+    <!-- 회원 선물 지급 : save_log 테이블 등록 -->
+    <insert id="insertMemberGiftSaveLog" parameterType="java.util.List">
+        INSERT INTO <include refid="database"/>`member_contents_ticket_save_log`
+        (
+            `member_contents_ticket_save_idx`,
+            `member_idx`,
+            `ticket_cnt`,
+            `title`,
+            `state`,
+            `regdate`,
+            `regdate_tz`
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.saveIdx},
+                #{item.memberIdx},
+                #{item.ticketCnt},
+                #{item.contentsTitle},
+                #{item.state},
+                #{item.regdate},
+                '${convertTZ}'
+            )
+        </foreach>
+    </insert>
+
+    <!-- 회원 선물 지급 : used 테이블 등록 -->
+    <insert id="insertMemberGiftUsed" parameterType="java.util.List">
+        INSERT INTO <include refid="database"/>`member_contents_ticket_used`
+        (
+            `member_contents_ticket_save_idx`,
+            `member_idx`,
+            `ticket_cnt`,
+            `rest_ticket_cnt`,
+            `state`,
+            `regdate`,
+            `regdate_tz`
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.saveIdx},
+                #{item.memberIdx},
+                #{item.ticketCnt},
+                #{item.ticketCnt},
+                #{item.state},
+                #{item.regdate},
+                '${convertTZ}'
+            )
+        </foreach>
+    </insert>
+
+    <!-- 선물 지급 내역 통계 반영 -->
+    <insert id="insertGiftGiveCnt" parameterType="GiftDto">
+        INSERT INTO <include refid="database"/>`contents_ticket_stat`
+        SET
+            `date`                  = #{regdate},
+            `contents_ticket_idx`   = #{idx},
+            `give_count`            = #{ticketCnt},
+            `use_count`             = 0
+        ON DUPLICATE KEY UPDATE
+            `give_count` = `give_count` + #{ticketCnt}
+    </insert>
+
+    <!-- ==============================================================
+        선물 사용
+    =============================================================== -->
+
+    <!-- 회원 선물 사용 : used 테이블 업데이트 -->
+    <update id="updateMemberGiftUsed" parameterType="GiftDto">
+        UPDATE <include refid="database"/>`member_contents_ticket_used`
+        SET
+            `rest_ticket_cnt` = #{restCnt}
+        WHERE
+            `member_contents_ticket_save_idx` = #{saveIdx}
+            AND `member_idx` = #{memberIdx}
+        <selectKey resultType="java.lang.Long" keyProperty="usedIdx" order="AFTER">
+            SELECT
+                `idx` AS `usedIdx`
+            FROM `member_contents_ticket_used`
+            WHERE
+                `member_contents_ticket_save_idx` = #{saveIdx}
+                AND `member_idx` = #{memberIdx}
+        </selectKey>
+    </update>
+
+    <!-- 회원 선물 사용 : used_log 테이블 등록 -->
+    <insert id="insertMemberGiftUsedLog" parameterType="GiftDto">
+        INSERT INTO <include refid="database"/>`member_contents_ticket_used_log`
+        SET
+            `member_contents_ticket_used_idx`   = #{usedIdx},
+            `member_idx`                        = #{memberIdx},
+            `ticket_cnt`                        = #{useCnt},
+            `title`                             = #{contentsTitle},
+            `state`                             = #{state},
+            `regdate`                           = #{regdate},
+            `regdate_tz`                        = '${convertTZ}'
+    </insert>
+
+    <!-- 선물 사용 내역 통계 반영 : 데이터 신규 등록 -->
+    <insert id="insertGiftUseCnt" parameterType="GiftDto">
+        INSERT INTO <include refid="database"/>`contents_ticket_stat`
+        SET
+            `date`                  = #{regdate},
+            `contents_ticket_idx`   = #{idx},
+            `give_count`            = 0,
+            `use_count`             = #{useCnt}
+        ON DUPLICATE KEY UPDATE
+            `use_count` = `use_count` + #{useCnt}
+    </insert>
+</mapper>

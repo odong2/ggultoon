@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.policy.PolicyDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 공통으로 사용할 field -->
+    <sql id="policyColumns">
+
+    </sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+    <!-- 이용약관 목록 -->
+    <select id="getList" parameterType="hashmap" resultType="PolicyDto">
+        SELECT
+            `snpo`.`idx`,
+            IFNULL(`snpona`.`name`,`snpo`.`title`) AS `title`,
+            `snpo`.`required`,
+            `snpode`.`detail`
+        FROM
+            <include refid="database" />`sns_policy` AS `snpo`
+        LEFT JOIN <include refid="database" />`sns_policy_name` AS `snpona`
+            ON `snpo`.`idx` = `snpona`.`policy_idx`
+            AND `snpona`.`state` = '1'
+        LEFT JOIN <include refid="database" />`sns_policy_detail` AS `snpode`
+            ON `snpo`.`idx` = `snpode`.`policy_idx`
+            AND `snpode`.`state` = '1'
+        WHERE
+                `snpo`.`state` = '1'
+            AND `snpode`.`lang` = #{lang}
+            AND `snpode`.`lang` = #{lang}
+        ORDER BY
+            `snpo`.`required` DESC
+    </select>
+</mapper>

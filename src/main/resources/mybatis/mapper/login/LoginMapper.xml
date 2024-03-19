@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.login.LoginDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 공통으로 사용할 field -->
+    <sql id="loginColumns">
+        `me`.`idx`,
+		`me`.`id`,
+        `me`.`nick`,
+        `me`.`state`,
+        `me`.`site`,
+        `me`.`adult`,
+		`me`.`is_simple`,
+		`me`.`regdate`,
+		`me`.`logindate`,
+        `mein`.`birth`,
+        `mein`.`ci`,
+		IFNULL(`mein`.`email`,'') AS email
+    </sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+    <!-- 로그인 성공시 회원 정보 가져오기 -->
+    <select id="getInfoForLogin" parameterType="MemberDto" resultType="MemberDto">
+        SELECT
+            <include refid="loginColumns" />
+        FROM <include refid="database" />`member` AS `me`
+        LEFT JOIN <include refid="database" />`member_info` AS `mein`
+            ON `me`.`idx` = `mein`.`member_idx`
+        LEFT JOIN <include refid="database" />`member_simple` AS `mesi`
+            ON `me`.`idx` = `mesi`.`member_idx`
+        LEFT JOIN <include refid="database" />`member_login_key` AS `meloke`
+        ON `me`.`idx` = `meloke`.`member_idx`
+        WHERE
+            `me`.`id` = #{id}
+        <choose>
+            <when test="auto != null and !auto.equals('')">
+                AND `meloke`.`login_key` = #{auto}
+            </when>
+            <when test="simpleType != null and !simpleType.equals('')">
+                AND `mesi`.`simple_type` = #{simpleType}
+                AND `me`.`is_simple` = 1
+            </when>
+            <otherwise>
+                AND `me`.password = #{password}
+                AND `me`.`is_simple` = 0
+            </otherwise>
+        </choose>
+    </select>
+
+    <!--회원 환경 설정 정보 -->
+    <select id="getSettingInfo" parameterType="MemberDto" resultType="MemberDto">
+        SELECT
+            `state` AS `coinAlarm`
+        FROM <include refid="database"/>`member_setting`
+        WHERE
+            `member_idx` = #{idx}
+            AND `setting_idx` = 1
+    </select>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 회원 로그인시간 업데이트 -->
+    <update id="updateLoginDate" parameterType="MemberDto">
+        UPDATE <include refid="database"/>`member`
+        SET
+            `logindate`    = #{logindate},
+            `logindate_tz` = '${convertTZ}'
+            <if test="loginType != null">
+                ,`login_type`    = #{loginType}
+            </if>
+        WHERE
+            `idx`   = #{idx}
+    </update>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 자동로그인 정보 입력 -->
+    <insert id="insertLoginKey" parameterType="MemberDto">
+        INSERT INTO <include refid="database" />member_login_key
+        <set>
+            `login_key`     = #{auto},
+            `id`            = #{id},
+            `member_idx`    = #{idx},
+            `regdate`       = #{regdate},
+            `regdate_tz`    = '${convertTZ}'
+        </set>
+        ON DUPLICATE KEY UPDATE
+            `login_key`     = #{auto},
+            `id`            = #{id},
+            `member_idx`    = #{idx},
+            `regdate`       = #{regdate}
+    </insert>
+
+    <!-- ==============================================================
+       DELETE
+   =============================================================== -->
+
+    <!-- 자동로그인 정보 삭제 -->
+    <delete id="deleteLoginKey" parameterType="String">
+        DELETE FROM <include refid="database" />member_login_key
+        WHERE
+        `id` = #{id}
+    </delete>
+</mapper>

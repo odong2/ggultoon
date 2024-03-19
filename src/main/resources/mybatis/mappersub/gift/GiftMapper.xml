@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.gift.GiftDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 회원이 지급 받을 수 있는 선물 리스트 ResultMap -->
+    <resultMap id="availableGiftList_rm" type="GiftDto">
+        <!-- 컨텐츠 idx -->
+        <id property="contentsIdx" column="contentsIdx"/>
+        <!-- 세로 이미지 리스트 -->
+        <collection property="contentHeightImgList" column="{contentsIdx=contentsIdx, device=device}" javaType="java.util.ArrayList" ofType="" select="getContentHeightImgList" />
+        <!-- 가로 이미지 리스트 -->
+        <collection property="contentWidthImgList" column="{contentsIdx=contentsIdx, device=device}" javaType="java.util.ArrayList" ofType="" select="getContentWidthImgList" />
+        <!-- 태그 리스트  -->
+        <collection property="tagList" column="contentsIdx" javaType="ArrayList" ofType="" select="getTagList"/>
+    </resultMap>
+
+    <!-- 회원이 실제 지급 받은 선물 리스트 ResultMap -->
+    <resultMap id="memberGiftList_rm" type="GiftDto">
+        <!-- 컨텐츠 idx -->
+        <id property="contentsIdx" column="contentsIdx"/>
+        <!-- 이용권 사용 불가 회차(최신 회차) 리스트 -->
+        <collection property="exceptEpisodeIdxList" column="{contentsIdx=contentsIdx, minExceptCnt=minExceptCnt}" javaType="java.util.ArrayList" ofType="" select="getExceptEpisodeIdxList" />
+    </resultMap>
+
+    <!-- 요청 기기정보 컬럼 set -->
+    <sql id="deviceColumn">
+        <choose>
+            <when test="device == 'pc'">
+                'pc' AS `device`
+            </when>
+            <when test="device == 'mobile'">
+                'mobile' AS `device`
+            </when>
+            <when test="device == 'origin'">
+                'origin' AS `device`
+            </when>
+        </choose>
+    </sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 회원이 지급 받을 수 있는 선물 개수 카운트 -->
+    <select id="getAvailableGiftTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(DISTINCT(`coti`.`idx`)) AS `totalCnt`
+        FROM <include refid="database"/>`contents_ticket` AS `coti`
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `coti`.`contents_idx` = `co`.`idx` AND `co`.`state` = 1
+        LEFT JOIN <include refid="database"/>`member_contents_ticket_save` AS `mecotisa`
+            ON `coti`.`idx` = `mecotisa`.`contents_ticket_idx` AND `mecotisa`.`state` = 1 AND `mecotisa`.`member_idx` = #{memberIdx}
+        LEFT JOIN <include refid="database"/>`member_contents_ticket_used` AS `mecotius`
+            ON `mecotisa`.`idx` = `mecotius`.`member_contents_ticket_save_idx` AND `mecotius`.`state` = 1
+        WHERE
+            `coti`.`state` = 1
+            <if test="nowDate != null and nowDate != ''">
+                AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            </if>
+            <if test="searchDateType != null and searchDateType != ''">
+                <if test="startDate != null and startDate != '' and endDate != null and endDate != ''">
+                    AND `coti`.`start_date` <![CDATA[ <= ]]> #{endDate}
+                    AND `coti`.`end_date` <![CDATA[ >= ]]> #{startDate}
+                </if>
+            </if>
+            <if test="contentsIdx != null and contentsIdx > 0">
+                AND `coti`.`contents_idx` = #{contentsIdx}
+            </if>
+            <if test="adult == null or adult == 0">
+                AND `coti`.`adult` = 0
+            </if>
+    </select>
+
+    <!-- 회원이 지급 받을 수 있는 선물 리스트 -->
+    <select id="getAvailableGiftList" parameterType="SearchDto" resultMap="availableGiftList_rm">
+        SELECT
+            `coti`.`idx`,
+            `coti`.`contents_idx` AS `contentsIdx`,
+            `coti`.`except_episode_count` AS `exceptCnt`,
+            `coti`.`available_period` AS `usePeriod`,
+            `coti`.`ticket_cnt`,
+            `coti`.`adult`,
+            `coti`.`state`,
+            IFNULL(CONVERT_TZ(`coti`.`start_date`, 'UTC', '${convertTZ}'), '') AS `startDate`,
+            IFNULL(CONVERT_TZ(`coti`.`end_date`, 'UTC', '${convertTZ}'), '') AS `endDate`,
+            IFNULL(CONVERT_TZ(`coti`.`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`,
+            `mecotius`.`rest_ticket_cnt` AS `restCnt`,
+            `co`.`title` AS `contentsTitle`,
+            `co`.`category_idx` AS `categoryIdx`,
+            IFNULL(`co`.`adult`, 0) AS contentsAdult,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', 'Asia/Seoul'), '') AS `episodePubdate`,
+            <include refid="deviceColumn"/>
+        FROM <include refid="database"/>`contents_ticket` AS `coti`
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `coti`.`contents_idx` = `co`.`idx` AND `co`.`state` = 1
+        LEFT JOIN <include refid="database"/>`member_contents_ticket_save` AS `mecotisa`
+            ON `coti`.`idx` = `mecotisa`.`contents_ticket_idx` AND `mecotisa`.`state` = 1 AND `mecotisa`.`member_idx` = #{memberIdx}
+        LEFT JOIN <include refid="database"/>`member_contents_ticket_used` AS `mecotius`
+            ON `mecotisa`.`idx` = `mecotius`.`member_contents_ticket_save_idx` AND `mecotius`.`state` = 1
+        WHERE
+            `coti`.`state` = 1
+            <if test="nowDate != null and nowDate != ''">
+                AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            </if>
+            <if test="searchDateType != null and searchDateType != ''">
+                <if test="startDate != null and startDate != '' and endDate != null and endDate != ''">
+                    AND `coti`.`start_date` <![CDATA[ <= ]]> #{endDate}
+                    AND `coti`.`end_date` <![CDATA[ >= ]]> #{startDate}
+                </if>
+            </if>
+            <if test="contentsIdx != null and contentsIdx > 0">
+                AND `coti`.`contents_idx` = #{contentsIdx}
+            </if>
+            <if test="adult == null or adult == 0">
+                AND `coti`.`adult` = 0
+            </if>
+        GROUP BY `coti`.`idx`
+        ORDER BY `coti`.`start_date` ASC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 회원이 실제 지급 받은 선물 IDX 리스트 조회 (중복 제거용) -->
+    <select id="getMemberGiftIdxList" parameterType="GiftDto" resultType="Long">
+        SELECT
+            `mecotisa`.`contents_ticket_idx`
+        FROM <include refid="database"/>`member_contents_ticket_save` AS `mecotisa`
+        JOIN <include refid="database"/>`contents_ticket` AS `coti`
+            ON `mecotisa`.`contents_ticket_idx` = `coti`.`idx` AND `coti`.`state` = 1
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `coti`.`contents_idx` = `co`.`idx` AND `co`.`state` = 1
+        LEFT JOIN <include refid="database"/>`member_info` AS `mein`
+            ON `mecotisa`.`member_idx` = `mein`.`member_idx` AND `mein`.`state` = 1
+        WHERE
+            `mecotisa`.`state` = 1
+            AND `mein`.`ci` = #{memberCi}
+            <if test="nowDate != null and nowDate != ''">
+                AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            </if>
+            <if test="searchDateType != null and searchDateType != ''">
+                <if test="startDate != null and startDate != '' and endDate != null and endDate != ''">
+                    AND `coti`.`start_date` <![CDATA[ <= ]]> #{endDate}
+                    AND `coti`.`end_date` <![CDATA[ >= ]]> #{startDate}
+                </if>
+            </if>
+            <if test="memberIdx != null and memberIdx > 0">
+                AND `mecotisa`.`member_idx` <![CDATA[ != ]]> #{memberIdx}
+            </if>
+    </select>
+
+    <!-- 회원이 특정 작품에 대해 지급 받은 유효한 선물 개수 조회 -->
+    <select id="getMemberGiftCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            IFNULL(SUM(`mecotius`.`rest_ticket_cnt`), 0) AS `totalGiftCnt`
+        FROM <include refid="database"/>`member_contents_ticket_save` AS `mecotisa`
+        JOIN <include refid="database"/>`contents_ticket` AS `coti`
+            ON `mecotisa`.`contents_ticket_idx` = `coti`.`idx` AND `coti`.`contents_idx` = #{contentsIdx} AND `coti`.`state` = 1
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `coti`.`contents_idx` = `co`.`idx` AND `co`.`state` = 1
+        JOIN <include refid="database"/>`member_contents_ticket_used` AS `mecotius`
+            ON `mecotisa`.`idx` = `mecotius`.`member_contents_ticket_save_idx` AND `mecotius`.`state` = 1
+        WHERE
+            `mecotisa`.`member_idx` = #{memberIdx}
+            AND `mecotisa`.`state` = 1
+            <if test="nowDate != null and nowDate != ''">
+                AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+                AND `coti`.`start_date` <![CDATA[ <= ]]> #{nowDate}
+                AND `coti`.`end_date` <![CDATA[ > ]]> #{nowDate}
+            </if>
+    </select>
+
+    <!-- 회원이 특정 작품에 대해 지급 받은 선물 리스트 조회 -->
+    <select id="getMemberGiftList" parameterType="SearchDto" resultMap="memberGiftList_rm">
+        SELECT
+            `coti`.`idx`,
+            `coti`.`contents_idx` AS `contentsIdx`,
+            `coti`.`except_episode_count` AS `exceptCnt`,
+            `coti`.`available_period` AS `usePeriod`,
+            `coti`.`ticket_cnt`,
+            `coti`.`adult`,
+            `coti`.`state`,
+            IFNULL(CONVERT_TZ(`coti`.`start_date`, 'UTC', '${convertTZ}'), '') AS `startDate`,
+            IFNULL(CONVERT_TZ(`coti`.`end_date`, 'UTC', '${convertTZ}'), '') AS `endDate`,
+            IFNULL(CONVERT_TZ(`coti`.`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`,
+            `mecotisa`.`idx` AS `saveIdx`,
+            `mecotisa`.`payment_idx`,
+            `mecotius`.`rest_ticket_cnt` AS `restCnt`,
+            `co`.`title` AS `contentsTitle`,
+            `co`.`category_idx` AS `categoryIdx`,
+            IFNULL(`co`.`adult`, 0) AS contentsAdult,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', 'Asia/Seoul'), '') AS `episodePubdate`,
+            #{minExceptCnt} AS `minExceptCnt`
+        FROM <include refid="database"/>`member_contents_ticket_save` AS `mecotisa`
+        JOIN <include refid="database"/>`contents_ticket` AS `coti`
+            ON `mecotisa`.`contents_ticket_idx` = `coti`.`idx` AND `coti`.`contents_idx` = #{contentsIdx} AND `coti`.`state` = 1
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `coti`.`contents_idx` = `co`.`idx` AND `co`.`state` = 1
+        JOIN <include refid="database"/>`member_contents_ticket_used` AS `mecotius`
+            ON `mecotisa`.`idx` = `mecotius`.`member_contents_ticket_save_idx` AND `mecotius`.`state` = 1
+        WHERE
+            `mecotisa`.`member_idx` = #{memberIdx}
+            AND `mecotisa`.`state` = 1
+            <if test="nowDate != null and nowDate != ''">
+                AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+                AND `coti`.`start_date` <![CDATA[ <= ]]> #{nowDate}
+                AND `coti`.`end_date` <![CDATA[ > ]]> #{nowDate}
+            </if>
+        ORDER BY `coti`.`end_date` ASC
+    </select>
+
+    <!-- 회원이 특정 작품에 대해 지급 받은 작품 이용권 중 제외할 최신 회차 개수의 최소값 조회 -->
+    <select id="getMemberMinExceptCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            IFNULL(MIN(`coti`.`except_episode_count`), 0) AS `exceptCnt`
+        FROM <include refid="database"/>`member_contents_ticket_save` AS `mecotisa`
+        JOIN <include refid="database"/>`contents_ticket` AS `coti`
+            ON `mecotisa`.`contents_ticket_idx` = `coti`.`idx` AND `coti`.`contents_idx` = #{contentsIdx} AND `coti`.`state` = 1
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `coti`.`contents_idx` = `co`.`idx` AND `co`.`state` = 1
+        JOIN <include refid="database"/>`member_contents_ticket_used` AS `mecotius`
+            ON `mecotisa`.`idx` = `mecotius`.`member_contents_ticket_save_idx` AND `mecotius`.`state` = 1
+        WHERE
+            `mecotisa`.`state` = 1
+            AND `mecotisa`.`member_idx` = #{memberIdx}
+            AND `mecotius`.`rest_ticket_cnt` <![CDATA[ > ]]> 0
+            <if test="nowDate != null and nowDate != ''">
+                AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+                AND `coti`.`start_date` <![CDATA[ <= ]]> #{nowDate}
+                AND `coti`.`end_date` <![CDATA[ > ]]> #{nowDate}
+            </if>
+    </select>
+
+    <!-- ==============================================================
+        COLLECTION SELECT
+    =============================================================== -->
+
+    <!-- 컨텐츠 세로 이미지 리스트 -->
+    <select id="getContentHeightImgList" parameterType="HashMap" resultType="ContentImgDto">
+        SELECT
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`contents_img` AS `coim`
+        WHERE
+            `coim`.`contents_idx` = #{contentsIdx}
+            AND `coim`.`state`  = 1
+            AND `coim`.`device` = #{device}
+            AND `coim`.`type`   = 'height'
+    </select>
+
+    <!-- 컨텐츠 가로 이미지 리스트 -->
+    <select id="getContentWidthImgList" parameterType="HashMap" resultType="ContentImgDto">
+        SELECT
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`contents_img` AS `coim`
+        WHERE
+            `coim`.`contents_idx` = #{contentsIdx}
+            AND `coim`.`state` = 1
+            AND `coim`.`device` = #{device}
+            AND `coim`.`type`   = 'width'
+    </select>
+
+    <!-- 태그 리스트 -->
+    <select id="getTagList" parameterType="Integer" resultType="TagDto">
+        SELECT
+            DISTINCT(`ta`.`name`) AS `name`
+        FROM <include refid="database" />`tag_mapping` AS `tama`
+        JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx`
+        WHERE
+            `tama`.`contents_idx` = #{contentsIdx}
+            AND `tama`.`state` = 1
+            AND `ta`.`state` = 1
+    </select>
+
+    <!-- 이용권 사용 불가 회차(최신 회차) idx 리스트 -->
+    <select id="getExceptEpisodeIdxList" parameterType="HashMap" resultType="Long">
+        SELECT
+            `idx`
+        FROM <include refid="database" />`episode`
+        WHERE
+            `contents_idx` = #{contentsIdx}
+            AND `state` = 1
+        ORDER BY `episode_number` DESC
+        LIMIT #{minExceptCnt}
+    </select>
+</mapper>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.login.LoginDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!--회원 자동로그인 설정 정보 조회 -->
+    <select id="getLoginKey" parameterType="MemberDto" resultType="String">
+        SELECT
+            `meloke`.`login_key`
+        FROM <include refid="database"/>`member_login_key` as `meloke`
+        WHERE
+                `meloke`.`id` = #{id}
+        LIMIT 1
+    </select>
+
+    <!--회원 자동로그인 설정 정보 조회 -->
+    <select id="getIdAutoLogin" parameterType="MemberDto" resultType="String">
+        SELECT
+        `meloke`.`id`
+        FROM <include refid="database"/>`member_login_key` as `meloke`
+        WHERE
+        `meloke`.`login_key` = #{auto}
+        LIMIT 1
+    </select>
+
+</mapper>

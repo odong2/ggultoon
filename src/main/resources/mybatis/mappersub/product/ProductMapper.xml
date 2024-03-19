@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.product.ProductDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!--  상품 리스트 -->
+    <select id="getProductList" parameterType="ProductDto" resultType="ProductDto">
+        SELECT
+            `pr`.`idx`,
+            `pr`.`title`,
+            `pr`.`coin`,
+            `pr`.`coin_free`,
+            `pr`.`coin_free2`,
+            `pr`.`mileage`,
+            `pr`.`price`
+        FROM `product` AS `pr`
+        <where>
+                `pr`.`state` = 1
+            AND `pr`.`type` = #{type}
+        </where>
+        ORDER BY `pr`.`sort` ASC
+    </select>
+
+
+    <!--  상품 정보 -->
+    <select id="getProduct" parameterType="ProductDto" resultType="ProductDto">
+        SELECT
+            `pr`.`idx`,
+            `pr`.`title`,
+            `pr`.`coin`,
+            `pr`.`coin_free`,
+            `pr`.`coin_free2`,
+            `pr`.`mileage`,
+            `pr`.`price`
+        FROM `product` AS `pr`
+        <where>
+                `pr`.`idx` = #{idx}
+            AND `pr`.`state` = 1
+        </where>
+        LIMIT 1
+    </select>
+
+    <!--  상품 정보 -->
+    <select id="getMethodList" parameterType="int" resultType="hashmap">
+        SELECT
+            `prme`.`method`
+        FROM `product_method` AS `prme`
+        JOIN `payment_method` AS `pame`
+            ON `pame`.`method_type` = `prme`.`method` AND `pame`.state = 1
+        <where>
+            `prme`.`product_idx` = #{productIdx}
+        </where>
+        LIMIT 1000
+    </select>
+</mapper>

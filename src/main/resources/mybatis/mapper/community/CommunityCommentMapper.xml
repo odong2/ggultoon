@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.community.CommunityCommentDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 다음 그룹 번호 조회 (댓글 등록 시)-->
+    <select id="getNextGroupIdx" resultType="long">
+        SELECT
+            IFNULL(MAX(`group_idx` + 1), 0) AS `groupIdx`
+        FROM <include refid="database"/>`community_comment`
+    </select>
+
+    <!-- 부모 댓글 정보 조회 (대댓글 등록 시) -->
+    <select id="getParentCommentInfo" parameterType="Long" resultType="CommunityCommentDto">
+        SELECT
+            `idx`,
+            `parent_idx`,
+            `group_idx`,
+            `comment_cnt`,
+            `like_cnt`
+        FROM <include refid="database"/>`community_comment`
+        WHERE
+                `idx`   = #{parentIdx}
+            AND `state` = 1
+            AND `view`  = 1
+    </select>
+
+    <!-- 댓글 좋아요 개수 (episode_comment 테이블) -->
+    <select id="getCommentLikeCnt" parameterType="CommunityCommentDto" resultType="int">
+        SELECT
+            `like_cnt`
+        FROM <include refid="database"/>`community_comment`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+            AND `view`  = 1
+    </select>
+
+    <!-- 대댓글 개수 조회 -->
+    <select id="getReplyCommentCntByIdx" parameterType="long" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `commentCnt`
+        FROM <include refid="database"/>`community_comment`
+        WHERE
+                `parent_idx` = #{parentIdx}
+            AND `view` = 1
+            AND `state` = 1
+    </select>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 댓글 및 대댓글 등록 -->
+    <insert id="registComment" parameterType="CommunityCommentDto">
+        INSERT INTO <include refid="database"/>`community_comment`
+        SET
+            `community_contents_idx`    = #{communityContentsIdx},
+            `member_idx`                = #{memberIdx},
+            `group_idx`                 = #{groupIdx},
+            <choose>
+                <when test="parentIdx != null and parentIdx > 0">
+                    `parent_idx` = #{parentIdx},
+                </when>
+                <otherwise>
+                    `parent_idx` = 0,
+                </otherwise>
+            </choose>
+            `content`        = #{content},
+            `state`          = 1,
+            `view`           = 1,
+            `regdate`        = #{regdate},
+            `regdate_tz`     = '${convertTZ}'
+    </insert>
+
+    <!-- comment_like 테이블 등록 -->
+    <insert id="insertMemCommentLike" parameterType="CommunityCommentDto">
+        INSERT INTO <include refid="database"/>`community_comment_like`
+        SET
+            `community_comment_idx` = #{idx},
+            `member_idx`          = #{memberIdx},
+            `state`               = #{state},
+            `regdate`             = #{regdate},
+            `regdate_tz`          = '${convertTZ}'
+    </insert>
+
+    <!-- 댓글 신고 -->
+    <insert id="insertCommentReport" parameterType="CommunityCommentDto">
+        INSERT INTO <include refid="database"/>`community_comment_report`
+        SET
+            `comment_idx` = #{idx},
+            `member_idx` = #{memberIdx},
+            `state`      = 1,
+            `regdate`    = #{regdate},
+            `regdate_tz` = '${convertTZ}'
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 댓글 개수 업데이트 -->
+    <update id="updateCommentCnt" parameterType="CommunityCommentDto">
+        UPDATE <include refid="database"/>`community_comment`
+        SET
+            `comment_cnt` = #{commentCnt}
+        WHERE
+                `idx` = #{parentIdx}
+            AND `state` = 1
+            AND `view`  = 1
+    </update>
+
+    <!-- 댓글 좋아요 업데이트 (community_comment_like 테이블)-->
+    <update id="updateMemCommentLike" parameterType="CommunityCommentDto">
+        UPDATE <include refid="database"/>`community_comment_like`
+        SET
+            `state` = #{state}
+        WHERE
+                `member_idx`          = #{memberIdx}
+            AND `community_comment_idx` = #{idx}
+    </update>
+
+    <!-- 댓글 좋아요 개수 업데이트 -->
+    <update id="updateCommentLikeCnt" parameterType="CommunityCommentDto">
+        UPDATE <include refid="database"/>`community_comment`
+        SET
+            `like_cnt` = #{likeCnt}
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+            AND `view`  = 1
+    </update>
+
+    <!-- ==============================================================
+        DELETE
+    =============================================================== -->
+
+    <!-- 댓글 삭제 -->
+    <update id="deleteComment" parameterType="CommunityCommentDto">
+        UPDATE <include refid="database"/>`community_comment`
+        SET
+            `view`  = 0,
+            `state` = 0
+        WHERE
+                `idx` = #{idx}
+            AND `member_idx` = #{memberIdx}
+            AND `view`  = 1
+            AND `state` = 1
+    </update>
+
+    <!-- 대댓글 삭제 -->
+    <update id="deleteReplyComment" parameterType="long">
+        UPDATE <include refid="database"/>`community_comment`
+        SET
+            `view` = 0
+        WHERE
+                `parent_idx` = #{idx}
+            AND `view` = 1
+            AND `state` = 1
+    </update>
+
+</mapper>

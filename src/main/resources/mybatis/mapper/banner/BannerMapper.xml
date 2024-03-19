@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.banner.BannerDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 배너 클릭 count -->
+    <insert id="setBannerClick" parameterType="BannerDto">
+        INSERT INTO <include refid="database"/>`banner_click`
+        SET
+            `date`              = #{date},
+            `banner_mapping_idx`= #{bannerMappingIdx},
+            `banner_idx`        = #{idx},
+            `click_count`       = #{clickCount}
+        ON DUPLICATE KEY UPDATE
+            `click_count`       = `click_count` + #{clickCount}
+    </insert>
+
+</mapper>

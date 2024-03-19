@@ -1,0 +1,1556 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.content.ContentDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 요청 기기정보 컬럼 set -->
+    <sql id="deviceColumn">
+        <choose>
+            <when test="device == 'pc'">
+                'pc' AS `device`
+            </when>
+            <when test="device == 'mobile'">
+                'mobile' AS `device`
+            </when>
+            <when test="device == 'origin'">
+                'origin' AS `device`
+            </when>
+        </choose>
+    </sql>
+
+    <!-- 큐레이션, 카테고리 리스트, 검색 결과, 내 서재 ResultMap -->
+    <resultMap id="contentList_rm" type="ContentDto">
+        <!-- 컨텐츠 idx -->
+        <id property="contentsIdx" column="contentsIdx"/>
+
+        <result property="idx" column="idx"/>
+        <result property="categoryIdx" column="categoryIdx"/>
+        <result property="genreIdx" column="genreIdx"/>
+        <result property="title" column="title"/>
+        <result property="contentsTitle" column="contentsTitle"/>
+        <result property="description" column="description"/>
+        <result property="adult" column="adult"/>
+        <result property="adultPavilion" column="adultPavilion"/>
+        <result property="progress" column="progress"/>
+        <result property="exclusive" column="exclusive"/>
+        <result property="publication" column="publication"/>
+        <result property="revision" column="revision"/>
+        <result property="sellType" column="sellType"/>
+        <result property="label" column="label"/>
+        <result property="contentsPubdate" column="contentsPubdate"/>
+        <result property="regdate" column="regdate"/>
+        <result property="lastEpisodeNumber" column="lastEpisodeNumber"/>
+        <result property="episodePubdate" column="episodePubdate"/>
+        <result property="category" column="category"/>
+        <result property="genre" column="genre"/>
+        <result property="view" column="view"/>
+        <result property="favorite" column="favorite"/>
+        <result property="purchase" column="purchase"/>
+        <result property="device" column="device"/>
+        <result property="effectiveDate" column="effectiveDate"/>
+        <result property="ranking" column="ranking"/>
+        <result property="rankingPrev" column="ranking_prev"/>
+        <result property="episodeCount" column="episode_count"/>
+
+        <!-- 글작가 리스트 -->
+        <collection property="writerList" column="contentsIdx" javaType="java.util.ArrayList" ofType="" resultMap="writer_rm"/>
+        <!-- 그림작가 리스트 -->
+        <collection property="painterList" column="contentsIdx" javaType="java.util.ArrayList" ofType="" resultMap="painter_rm"/>
+        <!-- 태그 리스트  -->
+        <collection property="tagList" column="contentsIdx" javaType="java.util.ArrayList" ofType="" resultMap="tag_rm"/>
+        <!-- 썸네일 리스트  -->
+        <collection property="contentHeightImgList" column="{contentsIdx=contentsIdx, device=device}" javaType="java.util.ArrayList" ofType="" resultMap="imgList_rm"/>
+    </resultMap>
+
+    <!-- 작품 상세 ResultMap -->
+    <resultMap id="contentDetail_rm" type="ContentDto">
+        <!-- 컨텐츠 idx -->
+        <id property="contentsIdx" column="contentsIdx"/>
+        <!-- 글작가 리스트 -->
+        <collection property="writerList"  column="contentsIdx" javaType="ArrayList" ofType="" select="getWriterList"/>
+        <!-- 그림작가 리스트 -->
+        <collection property="painterList" column="contentsIdx" javaType="ArrayList" ofType="" select="getPainterList"/>
+        <!-- 태그 리스트  -->
+        <collection property="tagList" column="contentsIdx" javaType="ArrayList" ofType="" select="getTagList"/>
+        <!-- 세로 이미지 리스트 -->
+        <collection property="contentHeightImgList" column="{contentsIdx=contentsIdx, device=device}" javaType="ArrayList" ofType="" select="getContentHeightImgList" />
+        <!-- 가로 이미지 리스트 -->
+        <collection property="contentWidthImgList" column="{contentsIdx=contentsIdx, device=device}" javaType="ArrayList" ofType="" select="getContentWidthImgList" />
+    </resultMap>
+
+    <!-- ==============================================================
+        collection resultMap
+    =============================================================== -->
+    <!-- 글작가 resultMap -->
+    <resultMap id="writer_rm" type="AuthorDto">
+        <result property="name" column="writer"/>
+    </resultMap>
+
+    <!-- 그림작가 resultMap -->
+    <resultMap id="painter_rm" type="AuthorDto">
+        <result property="name" column="painter"/>
+    </resultMap>
+
+    <!-- 태그 resultMap -->
+    <resultMap id="tag_rm" type="TagDto">
+        <result property="name" column="tag"/>
+    </resultMap>
+
+    <!-- 이미지 resultMap -->
+    <resultMap id="imgList_rm" type="ContentImgDto">
+        <result property="url" column="url"/>
+        <result property="width" column="width"/>
+        <result property="height" column="height"/>
+        <result property="type" column="type"/>
+        <result property="sort" column="sort"/>
+    </resultMap>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 유효한 카테고리 조회 -->
+    <select id="getCategoryCountByIdx" parameterType="Integer" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `categoryCnt`
+        FROM <include refid="database"/>`category`
+        WHERE
+            `idx` = #{categoryIdx}
+    </select>
+
+    <!-- 유효한 장르 조회 -->
+    <select id="getGenreCountByIdx" parameterType="Integer" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `genreCnt`
+        FROM <include refid="database"/>`genre`
+        WHERE
+            `idx` = #{genreIdx}
+    </select>
+
+    <!-- 유효한 컨텐츠 조회 -->
+    <select id="getContentCnt" parameterType="ContentDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `contentsCnt`
+        FROM <include refid="database"/>`contents`
+        WHERE
+                `idx` = #{contentsIdx}
+            AND `pubdate` <![CDATA[<=]]> #{nowDate}
+    </select>
+
+    <!-- 유효한 컨텐츠 조회 -->
+    <select id="getContentCountByIdx" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `contentCnt`
+        FROM <include refid="database"/>`contents`
+        WHERE
+            `idx` = #{contentsIdx}
+            AND pubdate <![CDATA[ <= ]]> #{nowDate}
+        LIMIT 1
+    </select>
+
+    <!-- 유효한 에피소드 조회 -->
+    <select id="getEpisodeCountByIdx" parameterType="PurchaseDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `episodeCnt`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `idx` = #{episodeIdx}
+            AND `contents_idx` = #{contentsIdx}
+        LIMIT 1
+    </select>
+
+    <!-- 유효한 관심 idxList 인지 조회 -->
+    <select id="getFavoriteIdxListCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `totalCnt`
+        FROM <include refid="database"/>`member_favorite_contents`
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND `idx` IN
+            <foreach collection="idxList" item="idx" open="("  separator="," close=")">
+                #{idx}
+            </foreach>
+        LIMIT 1
+    </select>
+
+    <!-- 컨텐츠 idx 조회 -->
+    <select id="getContentsIdxByEpisodeIdx" parameterType="long" resultType="int">
+        SELECT
+            `contents_idx` AS `contentsIdx`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `idx` = #{episodeIdx}
+            AND `state` = 1
+        LIMIT 1
+    </select>
+
+    <!-- 컨텐츠 상세 조회 -->
+    <select id="getContentInfo" parameterType="Integer" resultType="ContentDto">
+        SELECT
+            `idx`,
+            `view`,
+            `view_dummy`,
+            `favorite`,
+            `rating`,
+            `purchase`
+        FROM <include refid="database"/>`contents_info`
+        WHERE
+            `contents_idx` = #{contentsIdx}
+    </select>
+
+    <!-- 컨텐츠 완결 여부 및 최종화 정보 조회 -->
+    <select id="getLastEpisodeNumber" parameterType="Integer" resultType="Integer">
+        SELECT
+            MAX(`ep`.`episode_number`) AS lastEpisodeNumber
+        FROM <include refid="database"/>`contents` AS `co`
+        LEFT JOIN <include refid="database"/>`episode` AS `ep`
+            ON `co`.`idx` = `ep`.`contents_idx`
+        WHERE
+            `co`.`idx` = #{contentsIdx}
+            AND `co`.`progress` = 3
+            AND `ep`.`episode_type_idx` = 1
+        GROUP BY `ep`.`contents_idx`
+    </select>
+
+    <!-- 컨텐츠 제목 조회 -->
+    <select id="getContentsTitleByIdx" parameterType="Integer" resultType="String">
+        SELECT
+            `title`
+        FROM <include refid="database"/>`contents`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 컨텐츠 할인 정보 조회 -->
+    <select id="getContentFreeInfo" parameterType="EpisodeDto" resultType="ContentDto">
+        SELECT
+            IFNULL(MAX(`minimum_purchase`), 0) AS `minPurchaseCnt`,
+            IFNULL(MAX(`discount`), 0) AS `discount`,
+            IFNULL(MAX(`minimum_purchase_rent`), 0) AS `minPurchaseRentCnt`,
+            IFNULL(MAX(`discount_rent`), 0) AS `discountRent`
+        FROM <include refid="database"/>`contents_event_free`
+        WHERE
+            `contents_idx` = #{contentIdx}
+        LIMIT 1
+    </select>
+
+    <!-- 컨텐츠 카테고리 조회 -->
+    <select id="getContentCategory" parameterType="Integer" resultType="int">
+        SELECT
+            `ca`.`idx`
+        FROM <include refid="database"/>`contents` AS `co`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        WHERE
+            `co`.`idx` = #{idx}
+    </select>
+
+    <!-- 컨텐츠 성인 여부 조회 -->
+    <select id="getContentAdult" parameterType="Integer" resultType="int">
+        SELECT
+            `adult`
+        FROM <include refid="database"/>`contents`
+        WHERE
+            `idx` = #{idx}
+    </select>
+
+    <!-- 해당 작품이 성인 작품 또는 성인관 작품인지 체크 -->
+    <select id="checkIsContentAdult" parameterType="Integer" resultType="ContentDto">
+        SELECT
+            `category_idx`,
+            `adult`,
+            `adult_pavilion`
+        FROM <include refid="database"/>`contents`
+        WHERE
+            `idx` = #{idx}
+    </select>
+
+    <!-- 해당 작품의 조회수 체크 -->
+    <select id="getContentViewCnt" parameterType="Integer" resultType="int">
+        SELECT
+            `view`
+        FROM <include refid="database"/>`contents_info`
+        WHERE
+            `contents_idx` = #{idx}
+    </select>
+
+    <!-- 해당 작품의 찜 개수 체크 -->
+    <select id="getFavoriteCnt" parameterType="Integer" resultType="int">
+        SELECT
+            `favorite`
+        FROM <include refid="database"/>`contents_info`
+        WHERE
+            `contents_idx` = #{contentsIdx}
+    </select>
+
+    <!-- 특정 작품의 카테고리 idx 조회 -->
+    <select id="getCategoryIdx" parameterType="Integer" resultType="int">
+        SELECT
+            `category_idx`
+        FROM <include refid="database" />`contents`
+        WHERE
+            `idx` = #{idx}
+        LIMIT 1
+    </select>
+
+    <!-- 선택한 작품 정보 조회 -->
+    <select id="checkContentInfo" parameterType="SearchDto" resultType="ContentDto">
+        SELECT
+            `category_idx`,
+            `adult`,
+            `adult_pavilion`
+        FROM <include refid="database"/>`contents`
+        WHERE
+            `idx` = #{contentsIdx}
+            AND `state` = 1
+            AND `pubdate` <![CDATA[ <= ]]> #{nowDate}
+    </select>
+
+    <!-- 랭킹에 등록된 작품 idx 리스트 조회 -->
+    <select id="getRankContentsIdxList" resultType="Integer">
+        SELECT
+            rada.contents_idx
+        FROM <include refid="database"/>`ranking_daily` as rada
+        WHERE
+            <![CDATA[
+                `rada`.`state` = 1
+            AND `rada`.`type` IN (12, 22, 32)
+            AND `rada`.`episode_count` > 0
+            ]]>
+    </select>
+
+    <!-- 큐레이션 리스트 개수 카운트 -->
+    <select id="getCurationTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`cu`.`idx`) AS curationTotalCnt
+        FROM <include refid="database" />`curation` AS `cu`
+        LEFT JOIN <include refid="database" />`curation_area_mapping` AS `cuarma`
+            ON `cu`.`idx` = `cuarma`.`curation_idx`
+        JOIN <include refid="database" />`area` AS `ar`
+            ON `cuarma`.`area_idx` = `ar`.`idx`
+        WHERE
+            `cuarma`.`area_idx` = #{type}
+            AND `cu`.`state` = 1
+            AND `cuarma`.`state` = 1
+            AND `ar`.`state` = 1
+            AND (
+                <![CDATA[
+                    `cu`.`reservation` = 0
+                    OR (`cu`.`reservation` = 1 AND `cu`.`start_date` <= #{nowDate} AND #{nowDate} <= `cu`.`end_date`)
+                ]]>
+            )
+        LIMIT 1
+    </select>
+
+    <!-- 큐레이션 리스트 -->
+    <select id="getCurationList" parameterType="SearchDto" resultType="ContentDto">
+        SELECT
+            `cu`.`idx` AS curationIdx,
+            IFNULL(`cu`.`title`, '') AS curationTitle,
+            IFNULL(`ar`.`idx`, 0) AS areaIdx,
+            IFNULL(`ar`.`name`, 0) AS areaText,
+            IFNULL(`ar`.`code`, 0) AS areaCode,
+            IFNULL(`cu`.`sort`, 0) AS curationSort,
+            <include refid="deviceColumn"/>
+        FROM <include refid="database" />`curation` AS `cu`
+        LEFT JOIN <include refid="database" />`curation_area_mapping` AS `cuarma`
+            ON `cu`.`idx` = `cuarma`.`curation_idx`
+        JOIN <include refid="database" />`area` AS `ar`
+            ON `cuarma`.`area_idx` = `ar`.`idx`
+        WHERE
+            `cuarma`.`area_idx` = #{type}
+            AND `cu`.`state` = 1
+            AND `cuarma`.`state` = 1
+            AND `ar`.`state` = 1
+            AND (
+                <![CDATA[
+                    `cu`.`reservation` = 0
+                    OR (`cu`.`reservation` = 1 AND `cu`.`start_date` <= #{nowDate} AND #{nowDate} <= `cu`.`end_date`)
+                ]]>
+            )
+        ORDER BY `cu`.`sort` ASC
+    </select>
+
+    <!-- 큐레이션에 담긴 작품 리스트 -->
+    <select id="getCurationContentList" parameterType="ContentDto" resultMap="contentList_rm">
+        SELECT
+            `co`.`idx` AS contentsIdx,
+            `co`.`category_idx` AS categoryIdx,
+            IFNULL(`co`.`genre_idx`, 0) AS genreIdx,
+            `co`.`title` AS title,
+            IFNULL(`co`.`adult`, 0) AS adult,
+            IFNULL(`co`.`adult_pavilion`, 0) AS adultPavilion,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(`co`.`revision`, 0) AS revision,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`regdate`, 'UTC', '${convertTZ}'),'') AS regdate,
+            IFNULL(`ca`.`name`, '') AS category,
+            IFNULL(`ge`.`name`, '') AS genre,
+            IFNULL(`co`.`last_episode_title`,'') AS `lastEpisodeNumber`,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', '${convertTZ}'),'') AS `episodePubdate`,
+            <include refid="deviceColumn"/>,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 1, `au`.`name`, NULL))) AS `writer`,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 2, `au`.`name`, NULL))) AS `painter`,
+            GROUP_CONCAT(DISTINCT(`ta`.`name`)) AS `tag`,
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`curation_mapping` AS `cuma`
+        LEFT JOIN <include refid="database" />`contents` AS `co`
+            ON `cuma`.`contents_idx` = `co`.`idx`
+        JOIN <include refid="database" />`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        JOIN <include refid="database" />`genre` AS `ge`
+            ON `co`.`genre_idx` = `ge`.`idx`
+        JOIN <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        LEFT JOIN <include refid="database" />`author_mapping` AS `auma`
+            ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+        LEFT JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `tama`.`contents_idx` = `co`.`idx` AND `tama`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx` AND `ta`.`state` = 1
+        LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+            ON `co`.`idx` = `coim`.`contents_idx` AND `coim`.`state` = 1 AND `coim`.`type` = 'height' AND `coim`.`device` = #{device}
+        WHERE
+            `cuma`.`state` = 1
+            AND `cuma`.`curation_idx`= #{curationIdx}
+            AND `co`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <choose>
+                <when test="isMemberAdult == null or isMemberAdult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+        GROUP BY `co`.`idx`
+        ORDER BY `cuma`.`sort` ASC
+        LIMIT 20
+    </select>
+
+    <!-- 이벤트 무료 회차 제공하는 작품 idx 조회 -->
+    <select id="getEventFreeEpisodeInfo" parameterType="String" resultType="Integer">
+        SELECT
+            `co`.`idx`
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database" />`contents_event_free` AS `coevfr`
+            ON `co`.`idx` = `coevfr`.`contents_idx`
+        WHERE
+            `co`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            AND `coevfr`.`event_free_used` = 1
+            AND `coevfr`.`event_start_date` <![CDATA[ <= ]]> #{nowDate}
+            AND `coevfr`.`event_end_date` <![CDATA[ >= ]]> #{nowDate}
+    </select>
+
+    <!-- 이벤트 할인 회차 개수 카운트 -->
+    <select id="getEventEpisodeCount" parameterType="String" resultType="ContentDto">
+        SELECT
+            `co`.`idx`,
+            COUNT(`epevco`.`episode_idx`) AS discountEpisodeCnt
+        FROM <include refid="database" />`contents` AS `co`
+        LEFT JOIN <include refid="database" />`episode` AS `ep`
+            ON `co`.`idx` = `ep`.`contents_idx`
+        JOIN <include refid="database" />`episode_event_coin` AS `epevco`
+            ON `ep`.`idx` = `epevco`.`episode_idx`
+        WHERE
+            `co`.`state` = 1
+            AND `ep`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            AND `epevco`.`event_start_date` <![CDATA[ <= ]]> #{nowDate}
+            AND `epevco`.`event_end_date` <![CDATA[ >= ]]> #{nowDate}
+    </select>
+
+    <!-- 카테고리별/장르별 컨텐츠(+랭킹순/최신순/인기순 정렬) 개수 카운트 -->
+    <select id="getCategoryContentsTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`co`.`idx`) AS totalCnt
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database" />`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        JOIN <include refid="database" />`genre` AS `ge`
+            ON `co`.`genre_idx` = `ge`.`idx`
+        JOIN <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        WHERE
+            `co`.`state` = 1
+            AND `ca`.`state` = 1
+            AND `ge`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <if test="categoryIdx != null and categoryIdx > 0">
+                AND `co`.`category_idx` = #{categoryIdx}
+            </if>
+            <if test="genreIdx != null and genreIdx > 0">
+                AND `co`.`genre_idx` = #{genreIdx}
+            </if>
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+    </select>
+
+    <!-- 카테고리별/장르별 컨텐츠(+랭킹순/최신순/인기순 정렬) 리스트 -->
+    <select id="getContentsList" parameterType="SearchDto" resultMap="contentList_rm">
+        SELECT
+            `co`.`idx` AS contentsIdx,
+            `co`.`category_idx`AS categoryIdx,
+            IFNULL(`co`.`genre_idx`, 0) AS genreIdx,
+            `co`.`title` AS title,
+            IFNULL(`co`.`description`, '') AS `description`,
+            IFNULL(`co`.`adult`, 0) AS adult,
+            IFNULL(`co`.`adult_pavilion`, 0) AS adultPavilion,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(`co`.`revision`, 0) AS revision,
+            IFNULL(`co`.`sell_type`, 0) AS sellType,
+            IFNULL(`co`.`label`, '') AS label,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', 'Asia/Seoul'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`regdate`, 'UTC', 'Asia/Seoul'),'') AS `regdate`,
+            IFNULL(`co`.`last_episode_title`,'') AS `lastEpisodeNumber`,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', 'Asia/Seoul'), '') AS `episodePubdate`,
+            IFNULL(`ca`.`name`, '') AS category,
+            IFNULL(`ge`.`name`, '') AS genre,
+            IFNULL(`coin`.`view`, 0) AS `view`,
+            IFNULL(`coin`.`favorite`, 0) AS favorite,
+            IFNULL(`coin`.`purchase`, 0) AS purchase,
+            <include refid="deviceColumn"/>,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 1, `au`.`name`, NULL))) AS `writer`,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 2, `au`.`name`, NULL))) AS `painter`,
+            GROUP_CONCAT(DISTINCT(`ta`.`name`)) AS `tag`,
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`
+        FROM  <include refid="database" />`contents` AS `co`
+        JOIN  <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        JOIN <include refid="database" />`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        JOIN <include refid="database" />`genre` AS `ge`
+            ON `co`.`genre_idx` = `ge`.`idx`
+        LEFT JOIN <include refid="database" />`author_mapping` AS `auma`
+            ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+        LEFT JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `tama`.`contents_idx` = `co`.`idx` AND `tama`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx` AND `ta`.`state` = 1
+        LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+            ON `co`.`idx` = `coim`.`contents_idx` AND `coim`.`state` = 1 AND `coim`.`type` = 'height' AND `coim`.`device` = #{device}
+        <where>
+                `co`.`state` = 1
+                AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <if test="categoryIdx != null and categoryIdx > 0">
+                AND `co`.`category_idx` = #{categoryIdx}
+            </if>
+            <if test="genreIdx != null and genreIdx > 0">
+                AND `co`.`genre_idx` = #{genreIdx}
+            </if>
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="monograph == 1">
+                AND co.publication = 1
+            </if>
+            <if test="complete == 1">
+                AND co.progress = 3
+            </if>
+        </where>
+        GROUP BY `co`.`idx`
+        <choose>
+            <when test="sortType == 2">
+                ORDER BY `co`.`regdate` DESC, `co`.`idx` DESC
+            </when>
+            <when test="sortType == 3">
+                ORDER BY `coin`.`favorite` DESC, `co`.`idx` DESC
+            </when>
+            <otherwise>
+                ORDER BY `coin`.`purchase` DESC, `co`.`idx` DESC
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 랭킹 개수 카운트 -->
+    <select id="getRankingContentsListTotalCnt" parameterType="SearchDto" resultType="_int">
+        SELECT
+            COUNT(`co`.`idx`) AS totalCnt
+        FROM <include refid="database" />contents AS co
+        <choose>
+            <when test="period == 1">
+                JOIN <include refid="database" />ranking_daily AS rada
+                    ON co.idx = rada.contents_idx
+                    AND rada.state = 1
+                    AND rada.category_idx = #{categoryIdx}
+                    AND rada.adult_pavilion = #{pavilionIdx}
+                <if test="rankingType != null">
+                    AND rada.type = #{rankingType}
+                </if>
+            </when>
+            <when test="period == 2">
+                JOIN <include refid="database" />ranking_weekly AS rada
+                    ON co.idx = rada.contents_idx
+                    AND rada.state = 1
+                    AND rada.category_idx = #{categoryIdx}
+                    AND rada.adult_pavilion = #{pavilionIdx}
+                <if test="rankingType != null">
+                    AND rada.type = #{rankingType}
+                </if>
+            </when>
+            <when test="period == 3">
+                JOIN <include refid="database" />ranking_monthly AS rada
+                    ON co.idx = rada.contents_idx
+                    AND rada.state = 1
+                    AND rada.category_idx = #{categoryIdx}
+                    AND rada.adult_pavilion = #{pavilionIdx}
+                <if test="rankingType != null">
+                    AND rada.type = #{rankingType}
+                </if>
+            </when>
+        </choose>
+        <where>
+            <![CDATA[
+                `co`.`state` = 1
+            AND `co`.`pubdate` <= #{nowDate}
+            ]]>
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="categoryIdx != null and categoryIdx > 0">
+                AND `co`.`category_idx` = #{categoryIdx}
+            </if>
+            <if test="genreIdx != null and genreIdx > 0">
+                AND `co`.`genre_idx` = #{genreIdx}
+            </if>
+            <if test="monograph == 1">
+                AND co.publication = 1
+            </if>
+            <if test="complete == 1">
+                AND co.progress = 3
+            </if>
+        </where>
+    </select>
+
+    <!-- 랭킹 리스트 -->
+    <select id="getRankingContentsList" parameterType="SearchDto" resultMap="contentList_rm">
+        SELECT
+            `co`.`idx` AS contentsIdx,
+            `co`.`category_idx`AS categoryIdx,
+            IFNULL(`co`.`genre_idx`, 0) AS genreIdx,
+            `co`.`title` AS title,
+            IFNULL(`co`.`description`, '') AS `description`,
+            IFNULL(`co`.`adult`, 0) AS adult,
+            IFNULL(`co`.`adult_pavilion`, 0) AS adultPavilion,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(`co`.`revision`, 0) AS revision,
+            IFNULL(`co`.`sell_type`, 0) AS sellType,
+            IFNULL(`co`.`label`, '') AS label,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', 'Asia/Seoul'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`regdate`, 'UTC', 'Asia/Seoul'),'') AS `regdate`,
+            IFNULL(`co`.`last_episode_title`,'') AS `lastEpisodeNumber`,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', 'Asia/Seoul'), '') AS `episodePubdate`,
+            IFNULL(`ca`.`name`, '') AS category,
+            IFNULL(`ge`.`name`, '') AS genre,
+            IFNULL(`coin`.`view`, 0) AS `view`,
+            IFNULL(`coin`.`favorite`, 0) AS favorite,
+            IFNULL(`coin`.`purchase`, 0) AS purchase,
+            <include refid="deviceColumn"/>,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 1, `au`.`name`, NULL))) AS `writer`,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 2, `au`.`name`, NULL))) AS `painter`,
+            GROUP_CONCAT(DISTINCT(`ta`.`name`)) AS `tag`,
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`
+            <if test="period != null and period gt 0 and period lte 3">
+                , IFNULL(CONVERT_TZ(rada.`date`, 'UTC', 'Asia/Seoul'), '') AS effectiveDate
+                , rada.`ranking`
+                , rada.`ranking_prev`
+                , rada.`episode_count`
+            </if>
+        FROM <include refid="database" />contents AS co
+        <choose>
+            <when test="period == 1">
+                JOIN <include refid="database" />ranking_daily AS rada
+                    ON co.idx = rada.contents_idx
+                    AND rada.state = 1
+                    AND rada.category_idx = #{categoryIdx}
+                    AND rada.adult_pavilion = #{pavilionIdx}
+                    <if test="rankingType != null">
+                        AND rada.type = #{rankingType}
+                    </if>
+            </when>
+            <when test="period == 2">
+                JOIN <include refid="database" />ranking_weekly AS rada
+                    ON co.idx = rada.contents_idx
+                    AND rada.state = 1
+                    AND rada.category_idx = #{categoryIdx}
+                    AND rada.adult_pavilion = #{pavilionIdx}
+                    <if test="rankingType != null">
+                        AND rada.type = #{rankingType}
+                    </if>
+            </when>
+            <when test="period == 3">
+                JOIN <include refid="database" />ranking_monthly AS rada
+                    ON co.idx = rada.contents_idx
+                    AND rada.state = 1
+                    AND rada.category_idx = #{categoryIdx}
+                    AND rada.adult_pavilion = #{pavilionIdx}
+                    <if test="rankingType != null">
+                        AND rada.type = #{rankingType}
+                    </if>
+            </when>
+        </choose>
+        JOIN <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        JOIN <include refid="database" />`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        JOIN <include refid="database" />`genre` AS `ge`
+            ON `co`.`genre_idx` = `ge`.`idx`
+        JOIN <include refid="database" />`author_mapping` AS `auma`
+            ON `auma`.`contents_idx` = `co`.`idx`
+            AND `auma`.`state` = 1
+        JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx`
+            AND `au`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `tama`.`contents_idx` = `co`.`idx`
+            AND `tama`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx`
+            AND `ta`.`state` = 1
+        LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+            ON `co`.`idx` = `coim`.`contents_idx`
+            AND `coim`.`state` = 1
+            AND `coim`.`type` = 'height'
+            AND `coim`.`device` = #{device}
+        <where>
+            <![CDATA[
+                `co`.`state` = 1
+            AND `co`.`pubdate` <= #{nowDate}
+            ]]>
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="categoryIdx != null and categoryIdx > 0">
+                AND `co`.`category_idx` = #{categoryIdx}
+            </if>
+            <if test="genreIdx != null and genreIdx > 0">
+                AND `co`.`genre_idx` = #{genreIdx}
+            </if>
+            <if test="monograph == 1">
+                AND co.publication = 1
+            </if>
+            <if test="complete == 1">
+                AND co.progress = 3
+            </if>
+        </where>
+        GROUP BY co.`idx`
+        ORDER BY rada.`ranking` ASC
+        LIMIT #{recordSize}
+        OFFSET #{pagination.limitStart}
+    </select>
+
+    <!-- 회원이 찜한 작품 목록 조회 -->
+    <select id="getMemberLikeContentList" parameterType="SearchDto" resultType="Integer">
+        SELECT
+            `co`.`idx`
+        FROM <include refid="database" />`member_favorite_contents` AS `mefaco`
+        JOIN <include refid="database" />`contents` AS `co`
+            ON `mefaco`.`contents_idx` = `co`.`idx`
+        JOIN <include refid="database" />`member` AS `me`
+            ON `mefaco`.`member_idx` = `me`.`idx`
+        WHERE
+            `co`.`idx` = #{contentsIdx}
+            AND `me`.`idx` = #{memberIdx}
+    </select>
+
+    <!-- 컨텐츠 상세 정보 유무 조회 -->
+    <select id="getContentInfoCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`co`.`idx`) AS totalCnt
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        WHERE
+            `co`.`idx` = #{contentsIdx}
+            AND `co`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <if test="adult == null or adult == 0">
+                AND `co`.`adult` = 0
+                AND `co`.`adult_pavilion` = 0
+            </if>
+        LIMIT 1
+    </select>
+
+    <!-- 컨텐츠 상세 -->
+    <select id="getContent" parameterType="SearchDto" resultMap="contentDetail_rm">
+        SELECT
+            `co`.`idx` AS contentsIdx,
+            `co`.`category_idx` AS categoryIdx,
+            IFNULL(`co`.`genre_idx`, 0) AS genreIdx,
+            `co`.`title` AS title,
+            IFNULL(`co`.`description`, '') AS `description`,
+            IFNULL(`co`.`adult`, 0) AS adult,
+            IFNULL(`co`.`adult_pavilion`, 0) AS adultPavilion,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(`co`.`revision`, 0) AS revision,
+            IFNULL(`co`.`sell_type`, 0) AS sellType,
+            IFNULL(`co`.`label`, '') AS label,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`regdate`, 'UTC', '${convertTZ}'),'') AS regdate,
+            IFNULL(`ca`.`name`, '') AS category,
+            IFNULL(`ge`.`name`, '') AS genre,
+            IFNULL(`coin`.`view`, 0) AS `view`,
+            IFNULL(`coin`.`favorite`, 0) AS favorite,
+            IFNULL(`coin`.`purchase`, 0) AS purchase,
+            IFNULL(`coty`.`name`, '') AS completeType,
+            <include refid="deviceColumn"/>
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database" />`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        JOIN <include refid="database" />`genre` AS `ge`
+            ON `co`.`genre_idx` = `ge`.`idx`
+        JOIN <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        LEFT JOIN <include refid="database" />`complete_type` AS `coty`
+            ON `co`.`complete_type_idx` = `coty`.`idx`
+        LEFT JOIN <include refid="database" />`episode` AS `ep`
+            ON `co`.`idx` = `ep`.`contents_idx`
+        WHERE
+            `co`.`idx` = #{contentsIdx}
+            AND `co`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <if test="adult == null or adult == 0">
+                AND `co`.`adult` = 0
+                AND `co`.`adult_pavilion` = 0
+            </if>
+        GROUP BY `co`.`idx`
+        LIMIT 1
+    </select>
+
+    <!-- 컨텐츠 제목 정보 -->
+    <select id="getContentTitle" parameterType="SearchDto" resultType="String">
+        SELECT
+            `co`.`title` AS title
+        FROM <include refid="database" />`contents` AS `co`
+        WHERE
+            `co`.`idx` = #{contentsIdx}
+            AND `co`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+        LIMIT 1
+    </select>
+
+    <!-- 작품 검색 결과 개수 카운트 -->
+    <select id="getContentSearchTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(DISTINCT(`co`.`idx`)) AS `totalCnt`
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `ca`.`idx` = `co`.`category_idx`
+        JOIN <include refid="database"/>`genre` AS `ge`
+            ON `ge`.idx = `co`.`genre_idx`
+        WHERE
+            `co`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <if test="categoryIdx != null and categoryIdx > 0">
+                AND `co`.`category_idx` = #{categoryIdx}
+            </if>
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="searchWord != '' and searchWord != null">
+                <bind name="val" value="'%' + searchWord + '%'" />
+                AND REPLACE(`co`.`title`, ' ', '') LIKE #{val}
+            </if>
+        LIMIT 1
+    </select>
+
+    <!-- 작품 검색 결과 리스트 -->
+    <select id="getContentSearchList" parameterType="SearchDto" resultMap="contentList_rm">
+        SELECT
+            `co`.`idx` AS contentsIdx,
+            `co`.`category_idx` AS categoryIdx,
+            IFNULL(`co`.`genre_idx`, 0) AS genreIdx,
+            `co`.`title` AS title,
+            IFNULL(`co`.`description`, '') AS `description`,
+            IFNULL(`co`.`adult`, 0) AS adult,
+            IFNULL(`co`.`adult_pavilion`, 0) AS adultPavilion,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(`co`.`revision`, 0) AS revision,
+            IFNULL(`co`.`sell_type`, 0) AS sellType,
+            IFNULL(`co`.`label`, '') AS label,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`regdate`, 'UTC', '${convertTZ}'),'') AS regdate,
+            IFNULL(`co`.`last_episode_title`,'') AS `lastEpisodeNumber`,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', '${convertTZ}'), '') AS `episodePubdate`,
+            IFNULL(`ca`.`name`, '') AS category,
+            IFNULL(`ge`.`name`, '') AS genre,
+            IFNULL(`coin`.`view`, 0) AS `view`,
+            IFNULL(`coin`.`favorite`, 0) AS favorite,
+            IFNULL(`coin`.`purchase`, 0) AS purchase,
+            <include refid="deviceColumn"/>,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 1, `au`.`name`, NULL))) AS `writer`,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 2, `au`.`name`, NULL))) AS `painter`,
+            GROUP_CONCAT(DISTINCT(`ta`.`name`)) AS `tag`,
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database" />`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        JOIN <include refid="database" />`genre` AS `ge`
+            ON `co`.`genre_idx` = `ge`.`idx`
+        JOIN <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        LEFT JOIN <include refid="database" />`author_mapping` AS `auma`
+            ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+        LEFT JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `tama`.`contents_idx` = `co`.`idx` AND `tama`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx` AND `ta`.`state` = 1
+        LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+            ON `co`.`idx` = `coim`.`contents_idx` AND `coim`.`state` = 1 AND `coim`.`type` = 'height' AND `coim`.`device` = #{device}
+        WHERE
+            `co`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <if test="categoryIdx != null and categoryIdx > 0">
+                AND `co`.`category_idx` = #{categoryIdx}
+            </if>
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="searchWord != '' and searchWord != null">
+                <bind name="val" value="'%' + searchWord + '%'" />
+                AND REPLACE(`co`.`title`, ' ', '') LIKE #{val}
+            </if>
+        GROUP BY `co`.`idx`
+        ORDER BY `co`.`category_idx` ASC, `co`.`idx` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 작가 검색 결과 개수 카운트 -->
+    <select id="getAuthorSearchTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(DISTINCT(`co`.`idx`)) AS `totalCnt`
+        FROM <include refid="database"/>`contents` AS `co`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `ca`.`idx` = `co`.`category_idx`
+        JOIN <include refid="database"/>`genre` AS `ge`
+            ON `ge`.idx = `co`.`genre_idx`
+        JOIN <include refid="database"/>`author_mapping` AS `auma`
+            ON `co`.`idx` = `auma`.`contents_idx`
+        JOIN <include refid="database"/>`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx`
+        WHERE
+            `co`.`state` = 1
+            AND `auma`.`state` = 1
+            AND `au`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="searchWord != '' and searchWord != null">
+                <bind name="val" value="'%' + searchWord + '%'" />
+                AND `co`.`idx` IN (
+                    SELECT `co`.`idx`
+                    FROM `contents` AS `co`
+                    LEFT JOIN `author_mapping` AS `auma`
+                        ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+                    LEFT JOIN `author` AS `au`
+                        ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+                    WHERE
+                        REPLACE(`au`.`name`, ' ', '') LIKE #{val}
+                    GROUP BY `co`.`idx`
+                )
+            </if>
+        LIMIT 1
+    </select>
+
+    <!-- 작가 검색 결과 리스트 -->
+    <select id="getAuthorSearchList" parameterType="SearchDto" resultMap="contentList_rm">
+        SELECT
+            `co`.`idx` AS contentsIdx,
+            `co`.`category_idx` AS categoryIdx,
+            IFNULL(`co`.`genre_idx`, 0) AS genreIdx,
+            `co`.`title` AS title,
+            IFNULL(`co`.`description`, '') AS `description`,
+            IFNULL(`co`.`adult`, 0) AS adult,
+            IFNULL(`co`.`adult_pavilion`, 0) AS adultPavilion,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(`co`.`revision`, 0) AS revision,
+            IFNULL(`co`.`sell_type`, 0) AS sellType,
+            IFNULL(`co`.`label`, '') AS label,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`regdate`, 'UTC', '${convertTZ}'),'') AS regdate,
+            IFNULL(`co`.`last_episode_title`,'') AS `lastEpisodeNumber`,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', '${convertTZ}'), '') AS `episodePubdate`,
+            IFNULL(`ca`.`name`, '') AS category,
+            IFNULL(`ge`.`name`, '') AS genre,
+            IFNULL(`coin`.`view`, 0) AS `view`,
+            IFNULL(`coin`.`favorite`, 0) AS favorite,
+            IFNULL(`coin`.`purchase`, 0) AS purchase,
+            <include refid="deviceColumn"/>,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 1, `au`.`name`, NULL))) AS `writer`,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 2, `au`.`name`, NULL))) AS `painter`,
+            GROUP_CONCAT(DISTINCT(`ta`.`name`)) AS `tag`,
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database" />`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        JOIN <include refid="database" />`genre` AS `ge`
+            ON `co`.`genre_idx` = `ge`.`idx`
+        JOIN <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        LEFT JOIN <include refid="database" />`author_mapping` AS `auma`
+            ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+        LEFT JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `tama`.`contents_idx` = `co`.`idx` AND `tama`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx` AND `ta`.`state` = 1
+        LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+            ON `co`.`idx` = `coim`.`contents_idx` AND `coim`.`state` = 1 AND `coim`.`type` = 'height' AND `coim`.`device` = #{device}
+        WHERE
+            `co`.`state` = 1
+            AND `auma`.`state` = 1
+            AND `au`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="searchWord != '' and searchWord != null">
+                <bind name="val" value="'%' + searchWord + '%'" />
+                AND `co`.`idx` IN (
+                    SELECT `co`.`idx`
+                    FROM `contents` AS `co`
+                    LEFT JOIN `author_mapping` AS `auma`
+                        ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+                    LEFT JOIN `author` AS `au`
+                        ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+                    WHERE
+                        REPLACE(`au`.`name`, ' ', '') LIKE #{val}
+                    GROUP BY `co`.`idx`
+                )
+            </if>
+        GROUP BY `co`.`idx`
+        ORDER BY `co`.`category_idx` ASC, `co`.`idx` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 태그 검색 결과 개수 카운트 -->
+    <select id="getTagSearchTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(DISTINCT(`co`.`idx`)) AS `totalCnt`
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `ca`.`idx` = `co`.`category_idx`
+        JOIN <include refid="database"/>`genre` AS `ge`
+            ON `ge`.idx = `co`.`genre_idx`
+        JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `co`.`idx` = `tama`.`contents_idx`
+        JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx`
+        WHERE
+            `co`.`state` = 1
+            AND `tama`.`state` = 1
+            AND `ta`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="searchWord != '' and searchWord != null">
+                <bind name="val" value="'%' + searchWord + '%'" />
+                AND REPLACE(`ta`.`name`, ' ', '') LIKE #{val}
+            </if>
+        LIMIT 1
+    </select>
+
+    <!-- 태그 검색 결과 리스트 -->
+    <select id="getTagSearchList" parameterType="SearchDto" resultMap="contentList_rm">
+        SELECT
+            `co`.`idx` AS contentsIdx,
+            `co`.`category_idx` AS categoryIdx,
+            IFNULL(`co`.`genre_idx`, 0) AS genreIdx,
+            `co`.`title` AS title,
+            IFNULL(`co`.`description`, '') AS `description`,
+            IFNULL(`co`.`adult`, 0) AS adult,
+            IFNULL(`co`.`adult_pavilion`, 0) AS adultPavilion,
+            IFNULL(`co`.`progress`, 0) AS progress,
+            IFNULL(`co`.`exclusive`, 0) AS exclusive,
+            IFNULL(`co`.`publication`, 0) AS publication,
+            IFNULL(`co`.`revision`, 0) AS revision,
+            IFNULL(`co`.`sell_type`, 0) AS sellType,
+            IFNULL(`co`.`label`, '') AS label,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            IFNULL(CONVERT_TZ(`co`.`regdate`, 'UTC', '${convertTZ}'),'') AS regdate,
+            IFNULL(`co`.`last_episode_title`,'') AS `lastEpisodeNumber`,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', '${convertTZ}'), '') AS `episodePubdate`,
+            IFNULL(`ca`.`name`, '') AS category,
+            IFNULL(`ge`.`name`, '') AS genre,
+            IFNULL(`coin`.`view`, 0) AS `view`,
+            IFNULL(`coin`.`favorite`, 0) AS favorite,
+            IFNULL(`coin`.`purchase`, 0) AS purchase,
+            <include refid="deviceColumn"/>,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 1, `au`.`name`, NULL))) AS `writer`,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 2, `au`.`name`, NULL))) AS `painter`,
+            GROUP_CONCAT(DISTINCT(`ta`.`name`)) AS `tag`,
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`contents` AS `co`
+        JOIN <include refid="database" />`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        JOIN <include refid="database" />`genre` AS `ge`
+            ON `co`.`genre_idx` = `ge`.`idx`
+        JOIN <include refid="database" />`contents_info` AS `coin`
+            ON `co`.`idx` = `coin`.`contents_idx`
+        LEFT JOIN <include refid="database" />`author_mapping` AS `auma`
+            ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+        LEFT JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `tama`.`contents_idx` = `co`.`idx` AND `tama`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx` AND `ta`.`state` = 1
+        LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+            ON `co`.`idx` = `coim`.`contents_idx` AND `coim`.`state` = 1 AND `coim`.`type` = 'height' AND `coim`.`device` = #{device}
+        WHERE
+            `co`.`state` = 1
+            AND `tama`.`state` = 1
+            AND `ta`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <choose>
+                <when test="adult == null or adult == 0">
+                    AND `co`.`adult` = 0
+                    AND `co`.`adult_pavilion` = 0
+                </when>
+                <otherwise>
+                    <if test="pavilionIdx != null and pavilionIdx == 0">
+                        AND `co`.`adult` = 0
+                        AND `co`.`adult_pavilion` = 0
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="searchWord != '' and searchWord != null">
+                <bind name="val" value="'%' + searchWord + '%'" />
+                AND REPLACE(`ta`.`name`, ' ', '') LIKE #{val}
+            </if>
+        GROUP BY `co`.`idx`
+        ORDER BY `co`.`category_idx` ASC, `co`.`idx` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 관심 컨텐츠 개수 카운트 -->
+    <select id="getFavoriteContentsTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`mefaco`.`idx`) AS `totalCnt`
+        FROM <include refid="database"/>`member_favorite_contents` AS `mefaco`
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `co`.`idx` = `mefaco`.`contents_idx`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `ca`.`idx` = `co`.`category_idx`
+        JOIN <include refid="database"/>`genre` AS `ge`
+            ON `ge`.idx = `co`.`genre_idx`
+        WHERE
+                `mefaco`.`member_idx` = #{idx}
+            AND `co`.`state` = 1
+        <choose>
+            <when test="searchWord != null and searchWord != ''">
+                <bind name="val" value="'%' + searchWord + '%'"/>
+                AND `co`.`title` LIKE #{val}
+            </when>
+        </choose>
+    </select>
+
+    <!-- 관심 컨텐츠 리스트 -->
+    <select id="getFavoriteContentsList" parameterType="SearchDto" resultMap="contentList_rm">
+        SELECT
+            `mefaco`.`idx`,
+            `co`.`idx` AS contentsIdx,
+            `co`.`title` AS `contentsTitle`,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            `co`.`adult` AS adult,
+            `co`.`exclusive` AS exclusive,
+            `co`.`progress` AS progress,
+            `co`.`publication` AS publication,
+            `co`.`revision` AS revision,
+            IFNULL(CONVERT_TZ(`co`.`episode_pubdate`, 'UTC', '${convertTZ}'), '') AS `episodePubdate`,
+            `co`.`last_episode_title` AS `lastEpisodeNumber`,
+            `ca`.`name` AS `category`,
+            `ge`.`name` AS `genre`,
+            IFNULL(CONVERT_TZ(`mefaco`.`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`,
+            <include refid="deviceColumn"/>,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 1, `au`.`name`, NULL))) AS `writer`,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 2, `au`.`name`, NULL))) AS `painter`,
+            GROUP_CONCAT(DISTINCT(`ta`.`name`)) AS `tag`,
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database"/>`member_favorite_contents` AS `mefaco`
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `co`.`idx` = `mefaco`.`contents_idx`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `ca`.`idx` = `co`.`category_idx`
+        JOIN <include refid="database"/>`genre` AS `ge`
+            ON `ge`.idx = `co`.`genre_idx`
+        LEFT JOIN <include refid="database" />`author_mapping` AS `auma`
+            ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+        LEFT JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `tama`.`contents_idx` = `co`.`idx` AND `tama`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx` AND `ta`.`state` = 1
+        LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+            ON `co`.`idx` = `coim`.`contents_idx` AND `coim`.`state` = 1 AND `coim`.`type` = 'height' AND `coim`.`device` = #{device}
+        WHERE
+                `mefaco`.`member_idx` = #{idx}
+            AND `co`.`state` = 1
+        <choose>
+            <when test="searchWord != null and searchWord != ''">
+                <bind name="val" value="'%' + searchWord + '%'"/>
+                AND `co`.`title` LIKE #{val}
+            </when>
+        </choose>
+        GROUP BY `co`.`idx`
+        ORDER BY `mefaco`.`regdate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 컨텐츠 및 에피소드 정보 (내 서재) -->
+    <select id="getContentsInfoFromLibrary" parameterType="SearchDto" resultMap="contentList_rm">
+        SELECT
+            `co`.`idx` AS `contentsIdx`,
+            `co`.`title` AS `contentsTitle`,
+            IFNULL(CONVERT_TZ(`co`.`pubdate`, 'UTC', '${convertTZ}'), '') AS `contentsPubdate`,
+            `co`.`sell_type` AS sellType,
+            IFNULL(`co`.`last_episode_title`, '') AS `lastEpisodeNumber`,
+            `ca`.`name` AS `category`,
+            `ge`.`name` AS `genre`,
+            <include refid="deviceColumn"/>,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 1, `au`.`name`, NULL))) AS `writer`,
+            GROUP_CONCAT(DISTINCT(IF(`auma`.`type` = 2, `au`.`name`, NULL))) AS `painter`,
+            GROUP_CONCAT(DISTINCT(`ta`.`name`)) AS `tag`,
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database"/>`contents` AS `co`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `ca`.`idx` = `co`.`category_idx`
+        JOIN <include refid="database"/>`genre` AS `ge`
+            ON `ge`.`idx` = `co`.`genre_idx`
+        LEFT JOIN <include refid="database" />`author_mapping` AS `auma`
+            ON `auma`.`contents_idx` = `co`.`idx` AND `auma`.`state` = 1
+        LEFT JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx` AND `au`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag_mapping` AS `tama`
+            ON `tama`.`contents_idx` = `co`.`idx` AND `tama`.`state` = 1
+        LEFT JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx` AND `ta`.`state` = 1
+        LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+            ON `co`.`idx` = `coim`.`contents_idx` AND `coim`.`state` = 1 AND `coim`.`type` = 'height' AND `coim`.`device` = #{device}
+        LEFT JOIN <include refid="database"/>`episode` AS `ep`
+            ON `co`.`idx` = `ep`.`contents_idx`
+        WHERE
+            `ep`.`idx` = #{episodeIdx}
+    </select>
+
+    <!-- 찜한 컨텐츠 조회 -->
+    <select id="getContentFavorite" parameterType="ContentDto" resultType="ContentDto">
+        SELECT
+            `member_idx`,
+            `contents_idx`
+        FROM <include refid="database"/>`member_favorite_contents`
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `contents_idx` = #{contentsIdx}
+        LIMIT 1
+    </select>
+
+    <!-- 신고한 컨텐츠 조회 -->
+    <select id="getContentReport" parameterType="ContentDto" resultType="ContentDto">
+        SELECT
+            `member_idx`,
+            `contents_idx`,
+            `state`
+        FROM <include refid="database"/>`contents_report`
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `contents_idx` = #{contentsIdx}
+            AND `state` = 1
+        LIMIT 1
+    </select>
+
+    <!-- 신규 회차가 업로드된 작품 및 회차 번호 조회 -->
+    <select id="getNewEpisodeInfo" parameterType="NotificationDto" resultType="hashmap">
+        SELECT
+            `co`.`idx` AS `idx`,
+            `co`.`category_idx` AS `categoryIdx`,
+            `co`.`title` AS `content`,
+            `ep`.`episode_number` AS `episodeNumber`
+        FROM <include refid="database" /> `episode` AS `ep`
+        JOIN <include refid="database" /> `contents` AS `co`
+            ON `ep`.`contents_idx` = `co`.`idx`
+        <where>
+            `ep`.`idx` = #{typeIdx}
+            AND `co`.`state` = 1
+            AND `ep`.`state` = 1
+        </where>
+    </select>
+
+    <!-- ==============================================================
+        COLLECTION SELECT
+    =============================================================== -->
+
+    <!-- 컨텐츠 글작가 리스트 -->
+    <select id="getWriterList" parameterType="Integer" resultType="AuthorDto">
+        SELECT
+            `au`.`name`
+        FROM <include refid="database" />`author_mapping` AS `auma`
+        JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx`
+        WHERE
+                `auma`.`contents_idx` = #{contentsIdx}
+            AND `auma`.`type` = 1
+            AND `auma`.`state` = 1
+            AND `au`.`state` = 1
+    </select>
+
+    <!-- 컨텐츠 그림작가 리스트 -->
+    <select id="getPainterList" parameterType="Integer" resultType="AuthorDto">
+        SELECT
+            `au`.`name`
+        FROM <include refid="database" />`author_mapping` AS `auma`
+        JOIN <include refid="database" />`author` AS `au`
+            ON `auma`.`author_idx` = `au`.`idx`
+        WHERE
+                `auma`.`contents_idx` = #{contentsIdx}
+            AND `auma`.`type` = 2
+            AND `auma`.`state` = 1
+            AND `au`.`state` = 1
+    </select>
+
+    <!-- 컨텐츠 연재 요일 리스트 -->
+    <select id="getWeeklyList" parameterType="Integer" resultType="WeeklyDto">
+        SELECT
+            `we`.`name`
+        FROM <include refid="database" />`weekly_mapping` AS `wema`
+        JOIN <include refid="database" />`weekly` AS `we`
+            ON `wema`.`weekly_idx` = `we`.`idx`
+        WHERE
+                `wema`.`contents_idx` = #{contentsIdx}
+            AND `wema`.`state` = 1
+            AND `we`.`state` = 1
+    </select>
+
+    <!-- 컨텐츠 가로 이미지 리스트 -->
+    <select id="getContentWidthImgList" parameterType="HashMap" resultType="ContentImgDto">
+        SELECT
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`contents_img` AS `coim`
+        WHERE
+            `coim`.`contents_idx` = #{contentsIdx}
+            AND `coim`.`state` = 1
+            AND `coim`.`device` = #{device}
+            AND `coim`.`type`   = 'width'
+    </select>
+
+    <!-- 컨텐츠 세로 이미지 리스트 -->
+    <select id="getContentHeightImgList" parameterType="HashMap" resultType="ContentImgDto">
+        SELECT
+            `coim`.`url`,
+            `coim`.`width`,
+            `coim`.`height`,
+            `coim`.`type`,
+            `coim`.`sort`
+        FROM <include refid="database" />`contents_img` AS `coim`
+        WHERE
+                `coim`.`contents_idx` = #{contentsIdx}
+            AND `coim`.`state`  = 1
+            AND `coim`.`device` = #{device}
+            AND `coim`.`type`   = 'height'
+    </select>
+
+    <!-- 태그 리스트 -->
+    <select id="getTagList" parameterType="Integer" resultType="TagDto">
+        SELECT
+            DISTINCT(`ta`.`name`) AS `name`
+        FROM <include refid="database" />`tag_mapping` AS `tama`
+        JOIN <include refid="database" />`tag` AS `ta`
+            ON `tama`.`tag_idx` = `ta`.`idx`
+        WHERE
+            `tama`.`contents_idx` = #{contentsIdx}
+            AND `tama`.`state` = 1
+            AND `ta`.`state` = 1
+    </select>
+
+</mapper>

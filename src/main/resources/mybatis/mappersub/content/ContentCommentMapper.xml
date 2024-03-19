@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.content.ContentCommentDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 댓글/대댓글 비로그인 resultMap -->
+    <resultMap id="contentCommentList_rm" type="ContentCommentDto">
+        <!-- 회원 idx -->
+        <result property="memberIdx" column="memberIdx"/>
+        <!-- 댓글 작성자 닉네임 -->
+        <collection property="writerNick"  column="memberIdx" javaType="String" ofType="" select="getCommentWriterNick"/>
+    </resultMap>
+
+    <!-- 댓글/대댓글 로그인 resultMap -->
+    <resultMap id="loginContentCommentList_rm" type="ContentCommentDto">
+        <!-- 회원 idx -->
+        <result property="memberIdx" column="memberIdx"/>
+        <!-- 댓글 작성자 닉네임 -->
+        <collection property="writerNick"  column="memberIdx" javaType="String" ofType="" select="getCommentWriterNick"/>
+    </resultMap>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 유효한 컨텐츠 조회 -->
+    <select id="getContentCountByIdx" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `contentCnt`
+        FROM <include refid="database"/>`contents`
+        WHERE
+            `idx` = #{contentsIdx}
+            AND pubdate <![CDATA[ <= ]]> #{nowDate}
+    </select>
+
+    <!-- 유효한 댓글인지 조회 -->
+    <select id="getCommentCnt" parameterType="ContentCommentDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `commentCnt`
+        FROM <include refid="database"/>`contents_comment`
+        WHERE
+            `idx`               = #{idx}
+            AND `contents_idx`  = #{contentsIdx}
+            AND `state`         = 1
+            AND `view`          = 1
+    </select>
+
+    <!-- 댓글인지 대댓글인지 조회 -->
+    <select id="checkIsCommentOrReply" parameterType="ContentCommentDto" resultType="long">
+        SELECT
+            `parent_idx`
+        FROM <include refid="database"/>`contents_comment`
+        WHERE
+            `idx`               = #{idx}
+            AND `contents_idx`  = #{contentsIdx}
+            AND `state`         = 1
+            AND `view`          = 1
+        LIMIT 1
+    </select>
+
+    <!-- 컨텐츠 베스트 댓글 idx 리스트 -->
+    <select id="getCommentBestIdxList" parameterType="SearchDto" resultType="long">
+        SELECT
+            `idx`
+        FROM <include refid="database"/>`contents_comment`
+        WHERE
+            `contents_idx` = #{contentsIdx}
+            AND `parent_idx`  = 0
+            AND `view`        = 1
+            AND `state`       = 1
+        ORDER BY `like_cnt` DESC
+        LIMIT #{recordSize}
+    </select>
+
+    <!-- 좋아요한 댓글 idx 리스트 조회-->
+    <select id="getCommentLikeIdxList" parameterType="Long" resultType="Long">
+        SELECT
+            `contents_comment_idx`
+        FROM <include refid="database"/>`contents_comment_like`
+        WHERE
+            `member_idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 신고한 댓글 idx 리스트 조회-->
+    <select id="getCommentReportIdxList" parameterType="long" resultType="Long">
+        SELECT
+            `comment_idx`
+        FROM <include refid="database"/>`contents_comment_report`
+        WHERE
+            `member_idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 컨텐츠 댓글 개수 카운트 -->
+    <select id="getContentCommentTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`coco`.`idx`) AS `commentCnt`
+        FROM <include refid="database"/>`contents_comment` AS `coco`
+        LEFT JOIN <include refid="database"/>`contents_comment_report` AS `cocore`
+            ON `cocore`.`comment_idx` = `coco`.`idx`
+            <if test="memberIdx != null and memberIdx > 0">
+                AND `cocore`.`member_idx` = #{memberIdx}
+            </if>
+        WHERE
+            `coco`.`contents_idx` = #{contentsIdx}
+            AND `coco`.`parent_idx`  = 0
+            AND `coco`.`view`        = 1
+            AND `coco`.`state`       = 1
+            AND `cocore`.`comment_idx` IS NULL
+    </select>
+
+    <!-- 컨텐츠 대댓글 개수 카운트 -->
+    <select id="getContentReplyTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`coco`.`idx`) AS `replyCnt`
+        FROM <include refid="database"/>`contents_comment` AS `coco`
+        LEFT JOIN <include refid="database"/>`contents_comment_report` AS `cocore`
+            ON `cocore`.`comment_idx` = `coco`.`idx`
+            <if test="memberIdx != null and memberIdx > 0">
+                AND `cocore`.`member_idx` = #{memberIdx}
+            </if>
+        WHERE
+            `coco`.`contents_idx` = #{contentsIdx}
+            AND `coco`.`parent_idx`  = #{idx}
+            AND `coco`.`view`        = 1
+            AND `coco`.`state`       = 1
+            AND `cocore`.`comment_idx` IS NULL
+    </select>
+
+    <!-- 컨텐츠 베스트 댓글 리스트(비로그인) -->
+    <select id="getBestContentCommentList" parameterType="SearchDto" resultMap="contentCommentList_rm">
+        SELECT
+            `idx`,
+            `contents_idx` AS `contentsIdx`,
+            `member_idx` AS `memberIdx`,
+            `group_idx`,
+            `parent_idx`,
+            `content`,
+            `comment_cnt`,
+            `like_cnt`,
+            IFNULL(CONVERT_TZ(`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`,
+            IFNULL(CONVERT_TZ(`modify_date`, 'UTC', '${convertTZ}'), '') AS `modifyDate`
+        FROM <include refid="database"/>`contents_comment`
+        WHERE
+            `contents_idx`   = #{contentsIdx}
+            AND `parent_idx` = 0
+            AND `view`       = 1
+            AND `state`      = 1
+            AND `like_cnt` <![CDATA[ >= ]]> 10
+        ORDER BY `like_cnt` DESC, `regdate` DESC
+        LIMIT #{recordSize}
+    </select>
+
+    <!-- 컨텐츠 베스트 댓글 리스트(로그인) -->
+    <select id="getLoginBestContentCommentList" parameterType="SearchDto" resultMap="loginContentCommentList_rm">
+        SELECT
+            `coco`.`idx`,
+            `coco`.`contents_idx` AS `contentsIdx`,
+            `coco`.`member_idx` AS `memberIdx`,
+            `coco`.`group_idx`,
+            `coco`.`parent_idx`,
+            `coco`.`content`,
+            `coco`.`comment_cnt`,
+            `coco`.`like_cnt`,
+            #{memberIdx} AS `loginIdx`,
+            IFNULL(CONVERT_TZ(`coco`.`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`,
+            IFNULL(CONVERT_TZ(`coco`.`modify_date`, 'UTC', '${convertTZ}'), '') AS `modifyDate`
+        FROM <include refid="database"/>`contents_comment` AS `coco`
+        WHERE
+            `contents_idx`   = #{contentsIdx}
+            AND `parent_idx` = 0
+            AND `view`       = 1
+            AND `state`      = 1
+            AND `like_cnt` <![CDATA[ >= ]]> 10
+        ORDER BY `like_cnt` DESC, `regdate` DESC
+        LIMIT #{recordSize}
+    </select>
+
+    <!-- 컨텐츠 댓글 리스트(로그인) -->
+    <select id="getLoginContentCommentList" parameterType="SearchDto" resultMap="loginContentCommentList_rm">
+        SELECT
+            `coco`.`idx`,
+            `coco`.`contents_idx` AS `contentsIdx`,
+            `coco`.`member_idx` AS `memberIdx`,
+            `coco`.`group_idx`,
+            `coco`.`parent_idx`,
+            `coco`.`content`,
+            `coco`.`comment_cnt`,
+            `coco`.`like_cnt`,
+            #{memberIdx} AS `loginIdx`,
+            CONVERT_TZ(`coco`.`regdate`, 'UTC', '${convertTZ}') AS `regdate`,
+            CONVERT_TZ(`coco`.`modify_date`, 'UTC', '${convertTZ}') AS `modifyDate`
+        FROM <include refid="database"/>`contents_comment` AS `coco`
+        LEFT JOIN `contents_comment_report` AS `cocore`
+            ON `cocore`.`comment_idx` = `coco`.`idx`
+            <if test="memberIdx != null and memberIdx > 0">
+                AND `cocore`.`member_idx` = #{memberIdx}
+            </if>
+        WHERE
+            `coco`.`contents_idx`   = #{contentsIdx}
+            AND `coco`.`parent_idx` = 0
+            AND `coco`.`view`       = 1
+            AND `coco`.`state`      = 1
+            AND `cocore`.`comment_idx` IS NULL
+        <choose>
+            <when test="sortType != null and sortType > 0">
+                <choose>
+                    <when test="sortType == 1">
+                        ORDER BY `coco`.`like_cnt` DESC, `coco`.`regdate` DESC
+                    </when>
+                    <when test="sortType == 2">
+                        ORDER BY `coco`.`regdate` DESC
+                    </when>
+                    <when test="sortType == 3">
+                        ORDER BY `coco`.`comment_cnt` DESC, `coco`.`regdate` DESC
+                    </when>
+                    <otherwise>
+                        ORDER BY `coco`.`regdate` DESC, `coco`.`like_cnt` DESC
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                ORDER BY `coco`.`regdate` DESC, `coco`.`like_cnt` DESC
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 컨텐츠 대댓글 리스트 조회 -->
+    <select id="getLoginContentReplyList" parameterType="SearchDto" resultMap="loginContentCommentList_rm">
+        SELECT
+            `coco`.`idx`,
+            `contents_idx` AS `contentsIdx`,
+            `coco`.`member_idx` AS `memberIdx`,
+            `coco`.`group_idx`,
+            `coco`.`parent_idx`,
+            `coco`.`content`,
+            #{memberIdx} AS `loginIdx`,
+            IFNULL(CONVERT_TZ(`coco`.`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`,
+            IFNULL(CONVERT_TZ(`coco`.`modify_date`, 'UTC', '${convertTZ}'), '') AS `modifydate`
+        FROM <include refid="database"/>`contents_comment` AS `coco`
+        LEFT JOIN `contents_comment_report` AS `cocore`
+            ON `cocore`.`comment_idx` = `coco`.`idx`
+            <if test="memberIdx != null and memberIdx > 0">
+                AND `cocore`.`member_idx` = #{memberIdx}
+            </if>
+        WHERE
+            `coco`.`contents_idx` = #{contentsIdx}
+            AND `coco`.`parent_idx`  = #{idx}
+            AND `coco`.`view`        = 1
+            AND `coco`.`state`       = 1
+            AND `cocore`.`comment_idx` IS NULL
+        ORDER BY `coco`.`regdate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 다음 그룹 번호 조회 (댓글 등록 시) -->
+    <select id="getNextGroupIdx" resultType="long">
+        SELECT
+            IFNULL(MAX(`group_idx` + 1), 0) AS `groupIdx`
+        FROM <include refid="database"/>`contents_comment`
+        LIMIT 1
+    </select>
+
+    <!-- 부모 댓글 정보 조회 (대댓글 등록 시) -->
+    <select id="getParentCommentInfo" parameterType="Long" resultType="ContentCommentDto">
+        SELECT
+            `idx`,
+            `parent_idx`,
+            `group_idx`,
+            `comment_cnt`,
+            `like_cnt`
+        FROM <include refid="database"/>`contents_comment`
+        WHERE
+            `idx` = #{parentIdx}
+            AND `state` = 1
+            AND `view`  = 1
+        LIMIT 1
+    </select>
+
+    <!-- 댓글 좋아요 유무 조회 (comment_like 테이블) -->
+    <select id="getMemCommentLike" parameterType="ContentCommentDto" resultType="ContentCommentDto">
+        SELECT
+            `state`
+        FROM <include refid="database"/>`contents_comment_like`
+        WHERE
+            `member_idx`          = #{memberIdx}
+            AND `contents_comment_idx` = #{idx}
+        LIMIT 1
+    </select>
+
+    <!-- 댓글 좋아요 개수 (contents_comment 테이블) -->
+    <select id="getCommentLikeCnt" parameterType="ContentCommentDto" resultType="int">
+        SELECT
+            `like_cnt`
+        FROM <include refid="database"/>`contents_comment`
+        WHERE
+            `idx` = #{idx}
+            AND `state` = 1
+            AND `view`  = 1
+        LIMIT 1
+    </select>
+
+    <!-- 댓글 작성자 member_idx 조회-->
+    <select id="getCommentWriterIdx" parameterType="Long" resultType="Long">
+        SELECT
+            `member_idx`
+        FROM <include refid="database"/>`contents_comment`
+        WHERE
+            `idx` = #{idx}
+            AND `state` = 1
+            AND `view`  = 1
+        LIMIT 1
+    </select>
+
+    <!-- 댓글 정보 조회 -->
+    <select id="getCommentInfo" parameterType="ContentCommentDto" resultType="ContentCommentDto">
+        SELECT
+            `idx`,
+            `contents_idx`,
+            `member_idx`,
+            `group_idx`,
+            `parent_idx`,
+            `content`,
+            `comment_cnt`,
+            `like_cnt`,
+            `view`,
+            `state`,
+            IFNULL(CONVERT_TZ(`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`,
+            IFNULL(CONVERT_TZ(`modify_date`, 'UTC', '${convertTZ}'), '') AS `modifyDate`
+        FROM <include refid="database"/>`contents_comment`
+        WHERE
+            `idx`               = #{idx}
+            AND `member_idx`    = #{memberIdx}
+            AND `contents_idx`  = #{contentsIdx}
+            AND `state`         = 1
+            AND `view`          = 1
+        LIMIT 1
+    </select>
+
+    <!-- 신고한 댓글 조회 -->
+    <select id="getContentCommentReport" parameterType="ContentCommentDto" resultType="ContentCommentDto">
+        SELECT
+            `comment_idx`,
+            `member_idx`,
+            `state`
+        FROM <include refid="database"/>`contents_comment_report`
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `comment_idx` = #{idx}
+            AND `state` = 1
+        LIMIT 1
+    </select>
+
+    <!-- ==============================================================
+        COLLECTION SELECT
+    =============================================================== -->
+
+    <!-- 댓글 작성자 닉네임 -->
+    <select id="getCommentWriterNick" parameterType="Long" resultType="String">
+        SELECT
+            IFNULL(`nick`,'')
+        FROM <include refid="database"/>`member`
+        WHERE
+            `idx` = #{memberIdx}
+        LIMIT 1
+    </select>
+
+</mapper>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.content.GenreDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 장르 리스트 -->
+    <select id="getGenreList" parameterType="Integer" resultType="GenreDto">
+        SELECT
+            ge.`idx`,
+            ge.`name`,
+            cama.`category_idx`,
+            cama.`sort`
+        FROM <include refid="database" />genre AS ge
+        JOIN <include refid="database" />category_mapping AS cama
+            ON ge.`idx` = cama.`genre_idx`
+        <where>
+                cama.`category_idx` = #{category_idx}
+            AND ge.`state` = 1
+            AND cama.`state` = 1
+        </where>
+        ORDER BY cama.`sort` ASC
+    </select>
+
+</mapper>

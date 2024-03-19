@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.episode.EpisodeCommentDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+
+    <!-- resultMap -->
+    <resultMap id="comment_rm" type="EpisodeCommentDto">
+        <!-- 회원 idx -->
+        <result property="memberIdx" column="memberIdx"/>
+        <!-- 댓글 작성자 닉네임 -->
+        <collection property="writerNick"  column="memberIdx" javaType="String" ofType="" select="getCommentWriterNick"/>
+    </resultMap>
+
+    <resultMap id="comment_login_rm" type="EpisodeCommentDto">
+        <!-- 회원 idx -->
+        <result property="memberIdx" column="memberIdx"/>
+        <!-- 댓글 작성자 닉네임 -->
+        <collection property="writerNick"  column="memberIdx" javaType="String" ofType="" select="getCommentWriterNick"/>
+    </resultMap>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 부모 댓글 정보 조회 (대댓글 등록 시) -->
+    <select id="getParentCommentInfo" parameterType="Long" resultType="EpisodeCommentDto">
+        SELECT
+            `idx`,
+            `parent_idx`,
+            `group_idx`,
+            `comment_cnt`,
+            `like_cnt`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+            `idx`   = #{parentIdx}
+            AND `state` = 1
+            AND `view`  = 1
+    </select>
+
+    <!-- 댓글 좋아요 개수 (episode_comment 테이블) -->
+    <select id="getCommentLikeCnt" parameterType="EpisodeCommentDto" resultType="int">
+        SELECT
+            `like_cnt`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+            `idx` = #{idx}
+            AND `state` = 1
+            AND `view`  = 1
+    </select>
+
+    <!-- 대댓글 개수 조회 -->
+    <select id="getReplyCommentCntByIdx" parameterType="long" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `commentCnt`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+            `parent_idx` = #{parentIdx}
+            AND `view` = 1
+            AND `state` = 1
+    </select>
+
+    <!-- 유효한 에피소드 idx 인지 조회 -->
+    <select id="getEpisodeCntByIdx" parameterType="Long" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `episodeCnt`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 유효한 댓글 idx 인지 조회 -->
+    <select id="getCommentCnt" parameterType="EpisodeCommentDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `commentCnt`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+                `idx`         = #{idx}
+            AND `episode_idx` = #{episodeIdx}
+            AND `state` = 1
+            AND `view`  = 1
+    </select>
+
+    <!-- 댓글 신고 한적 있는지 조회 -->
+    <select id="getReportCnt" parameterType="EpisodeCommentDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `reportCnt`
+        FROM <include refid="database"/>`episode_comment_report`
+        WHERE
+                `comment_idx` = #{idx}
+            AND `member_idx` = #{memberIdx}
+            AND `state` = 1
+    </select>
+
+    <!-- 댓글 신고한 idx 리스트 조회-->
+    <select id="getCommentReportList" parameterType="Long" resultType="Long">
+        SELECT
+            `comment_idx`
+        FROM <include refid="database"/>`episode_comment_report`
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND `state` = 1
+    </select>
+
+    <!-- 댓글의 parent_idx, comment_cnt 조회 -->
+    <select id="getCommentParentAndCommentCnt" parameterType="Long" resultType="EpisodeCommentDto">
+        SELECT
+            `parent_idx`,
+            `comment_cnt`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+            `idx` = #{idx}
+    </select>
+
+    <!-- 댓글 좋아요 유무 조회 (comment_like 테이블) -->
+    <select id="getMemCommentLike" parameterType="EpisodeCommentDto" resultType="EpisodeCommentDto">
+        SELECT
+            `state`
+        FROM <include refid="database"/>`episode_comment_like`
+        WHERE
+                `member_idx`          = #{memberIdx}
+            AND `episode_comment_idx` = #{idx}
+    </select>
+
+    <!-- 회차 대댓글 개수 카운트 -->
+    <select id="getReplyCommentTotalCnt" parameterType="Long" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `totalCnt`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+            `parent_idx` = #{idx}
+        <if test="idxList != null and idxList.size != 0">
+            AND `idx` NOT IN
+            <foreach collection="idxList" item="idx" open="("  separator="," close=")">
+                #{idx}
+            </foreach>
+        </if>
+            AND `view` = 1
+            AND `state` = 1
+    </select>
+
+    <!-- 회차 댓글 개수 카운트 -->
+    <select id="getCommentsTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`epco`.`idx`) AS totalCnt
+        FROM <include refid="database"/>`episode_comment` AS `epco`
+        LEFT JOIN <include refid="database"/>`episode_comment_report` AS `epcore`
+            ON `epcore`.`comment_idx` = `epco`.`idx`
+            <if test="memberIdx != null and memberIdx > 0">
+                AND `epcore`.`member_idx` = #{memberIdx}
+            </if>
+        WHERE
+            `epco`.`episode_idx` = #{episodeIdx}
+            AND `epco`.`parent_idx`  = 0
+            AND `epco`.`view`        = 1
+            AND `epco`.`state`       = 1
+            AND `epcore`.`comment_idx` IS NULL
+    </select>
+
+    <!-- 회차 댓글 리스트 조회(로그인) -->
+    <select id="getCommentListLogin" parameterType="SearchDto" resultMap="comment_login_rm">
+        SELECT
+            `epco`.`idx`,
+            `epco`.`member_idx` AS `memberIdx`,
+            `epco`.`group_idx`,
+            `epco`.`parent_idx`,
+            `epco`.`content`,
+            `epco`.`comment_cnt`,
+            `epco`.`like_cnt`,
+            #{memberIdx} AS `loginIdx`,
+            IFNULL(CONVERT_TZ(`epco`.`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`
+        FROM <include refid="database"/>`episode_comment` AS `epco`
+        LEFT JOIN <include refid="database"/>`episode_comment_report` AS `epcore`
+            ON `epcore`.`comment_idx` = `epco`.`idx`
+            <if test="memberIdx != null and memberIdx > 0">
+                AND `epcore`.`member_idx` = #{memberIdx}
+            </if>
+        WHERE
+            `epco`.`episode_idx` = #{episodeIdx}
+            AND `epco`.`parent_idx`  = 0
+            AND `epco`.`view`        = 1
+            AND `epco`.`state`       = 1
+            AND `epcore`.`comment_idx` IS NULL
+        <choose>
+            <when test="sortType != null and sortType > 0">
+                <choose>
+                    <when test="sortType == 1">
+                        ORDER BY `epco`.`regdate` DESC, `epco`.`like_cnt` DESC
+                    </when>
+                    <when test="sortType == 2">
+                        ORDER BY `epco`.`regdate` DESC
+                    </when>
+                    <when test="sortType == 3">
+                        ORDER BY `epco`.`regdate` DESC, `epco`.`comment_cnt` DESC
+                    </when>
+                    <otherwise>
+                        ORDER BY `epco`.`regdate` DESC, `epco`.`like_cnt` DESC
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                ORDER BY `epco`.`regdate` DESC, `epco`.`like_cnt` DESC
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 대댓글 리스트 조회(비로그인) -->
+    <select id="getReplyCommentList" parameterType="SearchDto" resultMap="comment_rm">
+        SELECT
+            `idx`,
+            `member_idx` AS `memberIdx`,
+            `group_idx`,
+            `parent_idx`,
+            `content`,
+            `like_cnt`,
+            IFNULL(CONVERT_TZ(`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+                `episode_idx` = #{episodeIdx}
+            AND `parent_idx`  = #{idx}
+            AND `view`        = 1
+            AND `state`       = 1
+        ORDER BY `regdate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 대댓글 리스트 조회(로그인) -->
+    <select id="getReplyCommentListLogin" parameterType="SearchDto" resultMap="comment_login_rm">
+        SELECT
+            `idx`,
+            `member_idx` AS `memberIdx`,
+            `group_idx`,
+            `parent_idx`,
+            `content`,
+            `like_cnt`,
+            #{memberIdx} AS `loginIdx`,
+            IFNULL(CONVERT_TZ(`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+                `episode_idx` = #{episodeIdx}
+            AND `parent_idx`  = #{idx}
+            AND `view`        = 1
+            AND `state`       = 1
+        ORDER BY `regdate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 댓글 작성자 member_idx 조회-->
+    <select id="getCommentWriterIdx" parameterType="Long" resultType="Long">
+        SELECT
+            `member_idx`
+        FROM <include refid="database"/>`episode_comment`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+            AND `view`  = 1
+    </select>
+
+    <!-- 좋아요한 댓글 idx 리스트 조회-->
+    <select id="getCommentLikeIdxList" parameterType="Long" resultType="Long">
+        SELECT
+            `episode_comment_idx`
+        FROM <include refid="database"/>`episode_comment_like`
+        WHERE
+            `member_idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- ==============================================================
+        COLLECTION SELECT
+    =============================================================== -->
+
+    <!-- 댓글 작성자 닉네임 -->
+    <select id="getCommentWriterNick" parameterType="Long" resultType="String">
+        SELECT
+            `nick`
+        FROM <include refid="database"/>`member`
+        WHERE
+                `idx` = #{memberIdx}
+    </select>
+
+    <!-- 댓글 좋아요 유무 조회 (comment_like 테이블) -->
+    <select id="getIsCommentLike" parameterType="HashMap" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `memberLike`
+        FROM <include refid="database"/>`episode_comment_like`
+        WHERE
+                `member_idx`      = #{loginIdx}
+        AND `episode_comment_idx` = #{idx}
+    </select>
+
+</mapper>

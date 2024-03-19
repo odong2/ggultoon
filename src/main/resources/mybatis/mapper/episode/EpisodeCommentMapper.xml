@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.episode.EpisodeCommentDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 댓글 및 대댓글 등록 -->
+    <insert id="registComment" parameterType="EpisodeCommentDto">
+        INSERT INTO <include refid="database"/>`episode_comment`
+        SET
+            `episode_idx`    = #{episodeIdx},
+            `member_idx`     = #{memberIdx},
+        <choose>
+            <when test="parentIdx != null and parentIdx > 0">
+                `parent_idx` = #{parentIdx},
+            </when>
+            <otherwise>
+                `parent_idx` = 0,
+            </otherwise>
+        </choose>
+            `content`        = #{content},
+            `regdate`        = #{regdate},
+            `regdate_tz`     = '${convertTZ}'
+    </insert>
+
+    <!-- comment_like 테이블 등록 -->
+    <insert id="insertMemCommentLike" parameterType="EpisodeCommentDto">
+        INSERT INTO <include refid="database"/>`episode_comment_like`
+        SET
+            `episode_comment_idx` = #{idx},
+            `member_idx`          = #{memberIdx},
+            `state`               = #{state},
+            `regdate`             = #{regdate},
+            `regdate_tz`          = '${convertTZ}'
+    </insert>
+
+    <!-- 댓글 신고 -->
+    <insert id="insertCommentReport" parameterType="EpisodeCommentDto">
+        INSERT INTO <include refid="database"/>`episode_comment_report`
+        SET
+            `comment_idx` = #{idx},
+            `member_idx` = #{memberIdx},
+            `state`      = 1,
+            `regdate`    = #{regdate},
+            `regdate_tz` = '${convertTZ}'
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 댓글 개수 업데이트 -->
+    <update id="updateCommentCnt" parameterType="EpisodeCommentDto">
+        UPDATE <include refid="database"/>`episode_comment`
+        SET
+            `comment_cnt` = #{commentCnt}
+        WHERE
+                `idx` = #{parentIdx}
+            AND `state` = 1
+            AND `view`  = 1
+    </update>
+
+    <!-- 댓글 좋아요 업데이트 (episode_comment_like 테이블)-->
+    <update id="updateMemCommentLike" parameterType="EpisodeCommentDto">
+        UPDATE <include refid="database"/>`episode_comment_like`
+        SET
+            `state` = #{state}
+        WHERE
+                `member_idx`          = #{memberIdx}
+            AND `episode_comment_idx` = #{idx}
+    </update>
+
+    <!-- 댓글 좋아요 개수 업데이트 -->
+    <update id="updateCommentLikeCnt" parameterType="EpisodeCommentDto">
+        UPDATE <include refid="database"/>`episode_comment`
+        SET
+            `like_cnt` = #{likeCnt}
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+            AND `view`  = 1
+    </update>
+
+    <!-- ==============================================================
+        DELETE
+    =============================================================== -->
+
+    <!-- 댓글 삭제 -->
+    <update id="deleteComment" parameterType="EpisodeCommentDto">
+        UPDATE <include refid="database"/>`episode_comment`
+        SET
+            `view`  = 0,
+            `state` = 0
+        WHERE
+                `idx` = #{idx}
+            AND `member_idx` = #{memberIdx}
+            AND `view`  = 1
+            AND `state` = 1
+    </update>
+
+    <!-- 대댓글 삭제 -->
+    <update id="deleteReplyComment" parameterType="long">
+        UPDATE <include refid="database"/>`episode_comment`
+        SET
+            `view` = 0
+        WHERE
+                `parent_idx` = #{idx}
+            AND `view` = 1
+            AND `state` = 1
+    </update>
+
+</mapper>

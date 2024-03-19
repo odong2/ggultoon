@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.coin.CoinDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 공통으로 사용할 field -->
+    <sql id="MemberColumns">
+        `me`.`idx`,
+        `me`.`id`,
+        `me`.`nick`,
+        `me`.`state`,
+        `me`.`regdate`,
+        `mein`.`birth`,
+        `mein`.`gender`,
+        `mein`.`email`,
+        `mein`.`phone`,
+        `mein`.`lang`
+    </sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 남은 코인 조회 & coin_used.idx 조회 -->
+    <select id="getRestCoinAndIdxFromCoinUsed" parameterType="CoinDto" resultType="CoinDto">
+        SELECT
+            `idx`,
+            `rest_coin`
+        FROM <include refid="database"/>`member_coin_used`
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND `state`      = 1
+            AND `type`       = #{type}
+            AND `rest_coin`  > 0
+        ORDER BY `expiredate`
+        LIMIT 1
+    </select>
+
+    <!-- 남은 마일리지 조회 & mileage_used.idx 조회 (mileage_used 테이블)-->
+    <select id="getRestMileageFromMileageUsed" parameterType="long" resultType="CoinDto">
+        SELECT
+            `idx`,
+            `rest_mileage`
+        FROM <include refid="database"/>`member_mileage_used`
+        WHERE
+                `member_idx`    = #{memberIdx}
+            AND `state`         = 1
+            AND `rest_mileage`  > 0
+        ORDER BY `expiredate`
+        LIMIT 1
+    </select>
+
+    <!-- 만료된 코인 정보 조회-->
+    <select id="getExpireCoinInfoList" parameterType="Long" resultType="CoinDto">
+        SELECT
+            `idx`,
+            `coin`,
+            `rest_coin`,
+            `type`
+        FROM <include refid="database"/>`member_coin_used`
+        WHERE
+                `state` = 0
+            AND `member_idx` = #{memberIdx}
+    </select>
+
+    <!-- 만료된 마일리지 정보 조회 -->
+    <select id="getExpireMileageInfoList" parameterType="Long" resultType="CoinDto">
+        SELECT
+            `idx`,
+            `mileage`,
+            `rest_mileage`
+        FROM <include refid="database"/>`member_mileage_used`
+        WHERE
+                `state` = 0
+            AND `member_idx` = #{memberIdx}
+    </select>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <insert id="insertCoinUsed" parameterType="CoinDto" useGeneratedKeys="true" keyProperty="coinUsedIdx">
+        INSERT INTO <include refid="database"/>`member_coin_used`
+        SET
+            `member_coin_save_idx` =  #{memberCoinSaveIdx},
+            `member_idx`           =  #{memberIdx},
+            `coin`                 =  #{coin},
+            `rest_coin`            =  #{restCoin},
+            `type`                 =  #{type},
+            `state`                =  #{state},
+            `expiredate`           =  #{expiredate},
+            `expiredate_tz`         = '${convertTZ}',
+            `regdate`              =  #{regdate},
+            `regdate_tz`            = '${convertTZ}'
+    </insert>
+
+    <!-- coin_used_log 테이블 insert -->
+    <insert id="insertCoinUsedLog" parameterType="CoinDto">
+        INSERT INTO <include refid="database"/>`member_coin_used_log`
+        SET
+            `member_idx`           = #{memberIdx},
+            `member_coin_used_idx` = #{coinUsedIdx},
+            `coin`                 = #{coin},
+            `type`                 = #{type},
+            `title`                = #{title},
+            `state`                = 1,
+            `regdate`              = #{regdate},
+            `regdate_tz`           = '${convertTZ}'
+    </insert>
+
+    <!-- 마일리지 지급(member_mileage_save 테이블 등록) -->
+    <insert id="insertMileageSave" parameterType="CoinDto" useGeneratedKeys="true" keyProperty="mileageSaveIdx">
+        INSERT INTO <include refid="database"/>`member_mileage_save`
+        SET
+            `member_idx`        = #{memberIdx},
+            `payment_idx`       = #{paymentIdx},
+            `achievement_idx`   = 0,
+            `mileage`           = #{mileage},
+            `position`          = #{position},
+            `title`             = #{title},
+            `state`             = 1,
+            `regdate`           = #{regdate},
+            `regdate_tz`        = '${convertTZ}'
+    </insert>
+
+    <!-- mileage_used_log 테이블 등록 -->
+    <insert id="insertMileageUsedLog" parameterType="CoinDto">
+        INSERT INTO <include refid="database"/>`member_mileage_used_log`
+        SET
+            `member_idx`              = #{memberIdx},
+            `member_mileage_used_idx` = #{mileageUsedIdx},
+            `mileage`                 = #{mileage},
+            `title`                   = #{title},
+            `state`                   = 1,
+            `regdate`                 = #{regdate},
+            `regdate_tz`              = '${convertTZ}'
+    </insert>
+
+    <!-- member_mileage_save_log 테이블 insert( 마일리지 지급) -->
+    <insert id="insertMileageSaveLog" parameterType="CoinDto">
+        INSERT INTO <include refid="database"/>`member_mileage_save_log`
+        SET
+            `member_idx`              = #{memberIdx},
+            `member_mileage_save_idx` = #{mileageSaveIdx},
+            `mileage`                 = #{mileage},
+            `title`                   = #{title},
+            `state`                   = 1,
+            `regdate`                 = #{regdate},
+            `regdate_tz`              = '${convertTZ}'
+    </insert>
+
+    <!-- member_mileage_used 테이블 등록 -->
+    <insert id="insertMileageUsed" parameterType="CoinDto" useGeneratedKeys="true" keyProperty="mileageUsedIdx">
+        INSERT INTO <include refid="database"/>`member_mileage_used`
+        SET
+            `member_mileage_save_idx` = #{mileageSaveIdx},
+            `member_idx`              = #{memberIdx},
+            `mileage`                 = #{mileage},
+            `rest_mileage`            = #{mileage},
+            `state`                   = 1,
+            `expiredate`              = #{mileageExpireDate},
+            `expiredate_tz`           = '${convertTZ}',
+            `regdate`                 = #{regdate},
+            `regdate_tz`              = '${convertTZ}'
+    </insert>
+
+    <!-- 코인 지급(member_coin_save테이블 등록) -->
+    <insert id="insertCoinSave" parameterType="CoinDto" useGeneratedKeys="true" keyProperty="memberCoinSaveIdx">
+        INSERT INTO <include refid="database"/>`member_coin_save`
+        SET
+            `member_idx`      = #{memberIdx},
+            `payment_idx`     = #{paymentIdx},
+            `product_idx`     = #{productIdx},
+            `coin`            = #{coin},
+            `coin_free`       = #{coinFree},
+            `title`           = #{title},
+            `state`           = 1,
+            `regdate`         = #{regdate},
+            `regdate_tz`      = '${convertTZ}'
+    </insert>
+
+    <!-- member_coin_save_log 테이블 insert(코인 지급) -->
+    <insert id="insertCoinSaveLog" parameterType="CoinDto">
+        INSERT INTO <include refid="database"/>`member_coin_save_log`
+        SET
+            `member_idx`           = #{memberIdx},
+            `member_coin_save_idx` = #{memberCoinSaveIdx},
+            `coin`                 = #{coin},
+            `coin_free`            = #{coinFree},
+            `title`                = #{title},
+            `state`                = 1,
+            `regdate`              = #{regdate},
+            `regdate_tz`           = '${convertTZ}'
+    </insert>
+
+    <!-- member_coin_used 테이블 등록 -->
+    <insert id="insertCoinUsedFree" parameterType="CoinDto" useGeneratedKeys="true" keyProperty="coinUsedIdx">
+        INSERT INTO <include refid="database"/>`member_coin_used`
+        SET
+            `member_coin_save_idx`    = #{memberCoinSaveIdx},
+            `member_idx`              = #{memberIdx},
+            `coin`                    = #{coinFree},
+            `rest_coin`               = #{coinFree},
+            `expiredate`              = #{coinFreeExpireDate},
+            `type`                    = 2,
+            `state`                   = 1,
+            `expiredate_tz`           = '${convertTZ}',
+            `regdate`                 = #{regdate},
+            `regdate_tz`              = '${convertTZ}'
+    </insert>
+
+    <!-- member_coin 테이블 등록 -->
+    <insert id="insertMemberCoin" parameterType="List">
+        INSERT INTO <include refid="database"/>`member_coin`
+        SET
+            `coin`         = 0,
+            `coin_free`    = 0,
+            `mileage`      = 0,
+            `member_idx`   = #{memberIdx},
+            `regdate`      = #{regdate},
+            `regdate_tz`   = '${convertTZ}'
+    </insert>
+
+    <!-- 만료된 코인 로그 등록 -->
+    <insert id="insertExpireCoinLog" parameterType="CoinDto">
+        INSERT INTO <include refid="database"/>`member_coin_expire_log`
+        (
+        `member_idx`,
+        `member_coin_used_idx`,
+        `coin`,
+        `rest_coin`,
+        `coin_type`,
+        `state`,
+        `regdate`,
+        `regdate_tz`
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.memberIdx},
+            #{item.coinUsedIdx},
+            #{item.coin},
+            #{item.restCoin},
+            #{item.type},
+            1,
+            #{item.regdate},
+            '${convertTZ}'
+            )
+        </foreach>
+    </insert>
+
+    <!-- 만료된 마일리지 로그 등록 -->
+    <insert id="insertExpireMileageLog" parameterType="CoinDto">
+        INSERT INTO <include refid="database"/>`member_mileage_expire_log`
+        (
+        `member_idx`,
+        `member_mileage_used_idx`,
+        `mileage`,
+        `rest_mileage`,
+        `state`,
+        `regdate`,
+        `regdate_tz`
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.memberIdx},
+            #{item.mileageUsedIdx},
+            #{item.mileage},
+            #{item.restMileage},
+            1,
+            #{item.regdate},
+            '${convertTZ}'
+            )
+        </foreach>
+    </insert>
+
+    <!-- 1일 1회 로그인 마일리지 지급 -->
+    <insert id="insertMemberLoginMileage" parameterType="CoinDto">
+        INSERT INTO <include refid="database"/>`event_login_log`
+        SET
+            `member_idx`     = #{memberIdx},
+            `mileage`        = #{mileage},
+            `state`          = #{state},
+            `regdate`        = #{regdate},
+            `regdate_tz`     = '${convertTZ}',
+            `expiredate`     = #{mileageExpireDate},
+            `expiredate_tz`  = '${convertTZ}'
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 회원 코인 update(member_coin 테이블 update) -->
+    <update id="updateMemberCoin" parameterType="CoinDto">
+        UPDATE <include refid="database"/>`member_coin`
+        SET
+            `coin`      = #{coin},
+            `coin_free` = #{coinFree},
+            `mileage`   = #{mileage}
+        WHERE
+            `member_idx` = #{memberIdx}
+    </update>
+
+    <!-- 회원 마일리지 update(member_coin 테이블 update) -->
+    <update id="updateMileageFromMemberCoin" parameterType="CoinDto">
+        UPDATE <include refid="database"/>`member_coin`
+        SET
+            `mileage` = #{mileage}
+        WHERE
+            `member_idx` = #{memberIdx}
+    </update>
+
+    <!-- 코인 & 보너스 코인 update-->
+    <update id="updateMemberCoinAndCoinFree" parameterType="CoinDto">
+        UPDATE <include refid="database"/>`member_coin`
+        SET
+            `coin`      = #{coin},
+            `coin_free` = #{coinFree}
+        WHERE
+            `member_idx` = #{memberIdx}
+    </update>
+
+
+    <!-- coin_used 테이블 update(차감된 결과값으로 남은 코인 update) -->
+    <update id="updateCoinUsed" parameterType="CoinDto">
+        UPDATE <include refid="database"/>`member_coin_used`
+        SET
+            `rest_coin` = #{subResultCoin}
+        WHERE
+                `idx` = #{idx}
+            AND `type`= #{type}
+    </update>
+
+    <!-- mileage_used 테이블 update(차감된 결과값으로 남은 코인 update)-->
+    <update id="updateMileageUsed" parameterType="CoinDto">
+        UPDATE <include refid="database"/>`member_mileage_used`
+        SET
+            `rest_mileage` = #{subResultCoin}
+        WHERE
+            `idx` = #{idx}
+    </update>
+
+    <!-- 회원 코인 update(member_coin 테이블 update) -->
+    <update id="updateCoinPlus" parameterType="CoinDto">
+        UPDATE <include refid="database"/>`member_coin`
+        SET
+            `coin`      = `coin` + ${coin},
+            `coin_free` = coin_free + ${coinFree},
+            `mileage`   = mileage + ${mileage}
+        WHERE
+            `member_idx` = #{memberIdx}
+    </update>
+
+    <!-- 만료된 코인 update (member_coin_used 테이블) -->
+    <update id="updateExpireCoin" parameterType="CoinDto">
+        UPDATE <include refid="database"/>`member_coin_used`
+        SET
+            `state` = 0
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND `expiredate` <![CDATA[ < ]]> #{nowDate}
+    </update>
+
+    <!-- 만료된 마일리지 update (member_mileage_used 테이블) -->
+    <update id="updateExpireMileage" parameterType="CoinDto">
+        UPDATE <include refid="database"/>`member_mileage_used`
+        SET
+            `state` = 0
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND `expiredate` <![CDATA[ < ]]> #{nowDate}
+    </update>
+
+</mapper>

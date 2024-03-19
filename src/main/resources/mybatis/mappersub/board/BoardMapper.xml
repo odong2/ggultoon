@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.board.BoardDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 유효한 공지사항 idx 인지 조회 -->
+    <select id="getNoticeIdxCnt" parameterType="Long" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `noticeIdxCnt`
+        FROM <include refid="database"/>`notice`
+        WHERE
+            `idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 공지사항 개수 조회 -->
+    <select id="getNoticesTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `noticesTotalCnt`
+        FROM <include refid="database"/>`notice`
+        WHERE
+            `state` = 1
+    </select>
+
+    <!-- 공지사항 리스트 조회 -->
+    <select id="getNoticeList" parameterType="SearchDto" resultType="BoardDto">
+        SELECT
+            `idx`,
+            `type`,
+            `title`,
+            `content`,
+            `must_read`,
+            IFNULL(CONVERT_TZ(`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`
+        FROM <include refid="database"/>`notice`
+        WHERE
+            `state` = 1
+        ORDER BY `must_read` DESC, `regdate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 공지사항 상세 조회 -->
+    <select id="getNoticeInfo" parameterType="Long" resultType="BoardDto">
+        SELECT
+            `idx`,
+            `type`,
+            `title`,
+            `content`,
+            `must_read`,
+            `state`,
+            IFNULL(CONVERT_TZ(`regdate`, 'UTC', '${convertTZ}'), '') AS `regdate`
+        FROM <include refid="database"/>`notice`
+        WHERE
+            `idx` = #{idx}
+            AND `state` = 1
+        LIMIT 1
+    </select>
+
+    <!-- 등록된 공지사항 리스트 전체 조회 -->
+    <select id="getAllNoticeIdxList" resultType="BoardDto">
+        SELECT
+            `idx`,
+            `regdate`
+        FROM <include refid="database"/>`notice`
+        WHERE
+            `state` = 1
+    </select>
+
+</mapper>

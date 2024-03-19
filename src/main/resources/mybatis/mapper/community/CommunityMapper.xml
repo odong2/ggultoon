@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.community.CommunityDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 커뮤니티 게시물 상세 정보 조회 -->
+    <select id="getContentsInfoByIdx" parameterType="Long" resultType="CommunityContentDto">
+        SELECT
+            `view_cnt`,
+            `like_cnt`,
+            `comment_cnt`,
+            `report_cnt`
+        FROM <include refid="database"/>`community_contents_info`
+        WHERE
+                `community_contents_idx` = #{idx}
+            AND `state`                  = 1
+    </select>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+
+    <!-- 게시물 등록 -->
+    <insert id="insertContents" parameterType="CommunityContentDto" useGeneratedKeys="true" keyProperty="insertedIdx">
+        INSERT INTO <include refid="database"/>`community_contents`
+        SET
+            `contents_idx`           = #{contentsIdx},
+            `category_idx`           = #{categoryIdx},
+            `member_idx`             = #{memberIdx},
+            `title`                  = #{title},
+            `content`                = #{content},
+            `adult`                  = #{adult},
+            `state`                  = 1,
+            `regdate`                = #{regdate},
+            `regdate_tz`             = '${convertTZ}'
+    </insert>
+
+    <!-- 게시물 info 등록 -->
+    <insert id="insertContentsInfo" parameterType="CommunityContentDto">
+        INSERT INTO <include refid="database"/>`community_contents_info`
+        SET
+            `community_contents_idx` = #{insertedIdx},
+            `view_cnt`                   = 0,
+            `like_cnt`                   = 0,
+            `comment_cnt`                = 0,
+            `report_cnt`                 = 0,
+            `state`                      = 1
+    </insert>
+
+    <!-- 게시물 이미지 등록 -->
+    <insert id="registerImage" parameterType="List">
+        INSERT INTO <include refid="database" />`community_contents_img`
+            (
+                `community_contents_idx`,
+                `parent`,
+                `path`,
+                `filename`,
+                `url`,
+                `width`,
+                `height`,
+                `sort`,
+                `device`,
+                `lang`,
+                `state`,
+                `regdate`,
+                `regdate_tz`
+            )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.idx},
+                #{item.parent},
+                #{item.path},
+                #{item.orgFileName},
+                #{item.fileUrl},
+                #{item.width},
+                #{item.height},
+                #{item.sort},
+                #{item.device},
+                "ko",
+                1,
+                #{item.regdate},
+                '${convertTZ}'
+            )
+        </foreach>
+    </insert>
+
+    <!-- 게시물 신고 등록 -->
+    <insert id="insertContentsReport" parameterType="CommunityContentDto">
+        INSERT INTO <include refid="database"/>`community_contents_report`
+        SET
+            `community_contents_idx` = #{idx},
+            `member_idx`             = #{memberIdx},
+            `state`                  = 1,
+            `regdate`                = #{regdate},
+            `regdate_tz`             = '${convertTZ}'
+    </insert>
+
+    <!-- 게시물 좋아요 등록 -->
+    <insert id="insertMemContentsLike" parameterType="CommunityContentDto">
+        INSERT INTO <include refid="database"/>`community_contents_like`
+        SET
+            `community_contents_idx` = #{idx},
+            `member_idx`             = #{memberIdx},
+            `state`                  = #{state},
+            `regdate`                = #{regdate},
+            `regdate_tz`             = '${convertTZ}'
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+    <!-- 게시물 좋아요 업데이트 -->
+    <insert id="updateMemContentsLike" parameterType="CommunityContentDto">
+        UPDATE <include refid="database"/>`community_contents_like`
+        SET
+            `state` = #{state}
+        WHERE
+                `member_idx`             = #{memberIdx}
+            AND `community_contents_idx` = #{idx}
+    </insert>
+
+    <!-- 댓글 수 업데이트 -->
+    <update id="updateContentsCommentCnt" parameterType="CommunityContentDto">
+        UPDATE <include refid="database"/>`community_contents_info`
+        SET
+            `comment_cnt` = #{commentCnt}
+        WHERE
+                `community_contents_idx` = #{idx}
+            AND `state`                  = 1
+    </update>
+
+    <!-- 게시물 좋아요 수 업데이트 -->
+    <update id="updateContentsLikeCnt" parameterType="CommunityContentDto">
+        UPDATE <include refid="database"/>`community_contents_info`
+        SET
+            `like_cnt` = #{likeCnt}
+        WHERE
+                `community_contents_idx` = #{idx}
+            AND `state`                  = 1
+    </update>
+
+    <!-- 게시물 삭제 -->
+    <update id="deleteContent" parameterType="Long">
+        UPDATE <include refid="database"/>`community_contents`
+        SET
+            `state` = 0
+        WHERE
+                `idx`   = #{idx}
+            AND `state` = 1
+    </update>
+
+    <!-- 게시물 상세 삭제 -->
+    <update id="deleteContentInfo" parameterType="Long">
+        UPDATE <include refid="database"/>`community_contents_info`
+        SET
+            `state` = 0
+        WHERE
+                `community_contents_idx` = #{idx}
+            AND `state`                  = 1
+    </update>
+
+    <!-- 게시물 이미지 삭제-->
+    <update id="deleteContentImage" parameterType="Long">
+        UPDATE <include refid="database"/>`community_contents_img`
+        SET
+            `state` = 0
+        WHERE
+                `community_contents_idx` = #{idx}
+            AND `state` = 1
+    </update>
+
+</mapper>

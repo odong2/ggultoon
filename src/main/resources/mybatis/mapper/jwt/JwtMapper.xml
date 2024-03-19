@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.jwt.JwtDao">
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+    <!-- jwt refresh토큰 저장 -->
+    <insert id="insertRefreshToken" parameterType="hashMap" >
+        INSERT INTO <include refid="database" />jwt_refresh_token
+        <set>
+            `refresh_token`   = #{refreshToken},
+            `id`              = #{id},
+            `ip`              = #{ip}
+        </set>
+        ON DUPLICATE KEY UPDATE
+            `refresh_token`   = #{refreshToken}
+    </insert>
+
+    <!-- ==============================================================
+       SELECT
+   =============================================================== -->
+
+    <!-- jwt refresh토큰 검증 -->
+    <select id="verifyRefreshToken" parameterType="hashMap" resultType="java.lang.Integer">
+        SELECT
+            case when jwt.`refresh_token` = #{refreshToken} then 1
+                else 0
+                end as refreshVerify
+        FROM <include refid="database" />jwt_refresh_token AS jwt
+        WHERE
+                jwt.`id` = #{id}
+            AND jwt.`refresh_token` = #{refreshToken}
+    </select>
+
+</mapper>

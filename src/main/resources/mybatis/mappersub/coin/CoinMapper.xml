@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.coin.CoinDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 공통으로 사용할 field -->
+    <sql id="coinColumns">
+
+    </sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 구매할 회차 가격(코인) 및 정보-->
+    <select id="getEpisodeInfo" parameterType="PurchaseDto" resultType="CoinDto">
+        SELECT
+            `coin`,
+            `coin_rent`,
+            `title`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `idx` = #{episodeIdx}
+            AND `state` = 1
+    </select>
+
+    <!-- 회원 코인 정보 조회 -->
+    <select id="getMemberCoinInfoByMemberIdx" parameterType="Long" resultType="CoinDto">
+        SELECT
+            `coin`,
+            `coin_free`,
+            `mileage`,
+            `ticket_count`
+        FROM <include refid="database"/>`member_coin`
+        WHERE
+            `member_idx` = #{memberIdx}
+    </select>
+
+    <!-- 회원 코인 및 보너스 코인 조회 -->
+    <select id="getMemberCoinAndCoinFree" parameterType="CoinDto" resultType="CoinDto">
+        SELECT
+        IFNULL(SUM((CASE WHEN `type`= 1  THEN `rest_coin` END)), 0) AS `coin`,
+        IFNULL(SUM((CASE WHEN `type`= 2  THEN `rest_coin` END)), 0) AS `coinFree`
+        FROM <include refid="database"/>`member_coin_used`
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND  #{nowDate} <![CDATA[ < ]]> `expiredate`
+            AND `state` = 1
+    </select>
+
+    <!-- 회원 코인 조회(코인 + 보너스코인) -->
+    <select id="getMemberCoin" parameterType="CoinDto" resultType="Integer">
+        SELECT
+            IFNULL(SUM((CASE WHEN `type`= 1  THEN `rest_coin` END)), 0) +
+            IFNULL(SUM((CASE WHEN `type`= 2  THEN `rest_coin` END)), 0) AS `coin`
+        FROM <include refid="database"/>`member_coin_used`
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND  #{nowDate} <![CDATA[ < ]]> `expiredate`
+            AND `state` = 1
+    </select>
+
+    <!-- 회원 마일리지 조회 -->
+    <select id="getMemberMileage" parameterType="CoinDto" resultType="Integer">
+        SELECT
+            IFNULL(SUM(`rest_mileage`), 0) AS `mileage`
+        FROM <include refid="database"/>`member_mileage_used`
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND  #{nowDate} <![CDATA[ < ]]> `expiredate`
+            AND `state` = 1
+    </select>
+
+    <!-- 전체 대여 or 소장 회차 idx, 코인 정보 리스트 조회 -->
+    <select id="getAllEpisodeIdxAndCoin" parameterType="EpisodeDto" resultType="EpisodeDto">
+        SELECT
+                    `idx`
+            <choose>
+                <when test="type != null and type == 1">
+                    ,`coin_rent` AS `buyCoinPrice`
+                </when>
+                <when test="type != null and type == 2">
+                    ,`coin`      AS `buyCoinPrice`
+                </when>
+            </choose>
+        FROM <include refid="database"/>`episode`
+        WHERE
+                    `contents_idx` = #{contentIdx}
+                AND `pubdate` <![CDATA[<=]]> #{nowDate}
+                AND `state` = 1
+    </select>
+
+    <!-- 만료된 코인 idx 조회 -->
+    <select id="getExpireCoinIdxList" parameterType="Long" resultType="Long">
+        SELECT
+            `idx`
+        FROM <include refid="database"/>`member_coin_used`
+        WHERE
+                `state` = 0
+            AND `member_idx` = #{memberIdx}
+    </select>
+
+    <!-- 만료된 마일리지 idx 조회 -->
+    <select id="getExpireMileageIdxList" parameterType="Long" resultType="Long">
+        SELECT
+            `idx`
+        FROM <include refid="database"/>`member_mileage_used`
+        WHERE
+                `state` = 0
+            AND `member_idx` = #{memberIdx}
+    </select>
+
+    <!-- ==============================================================
+        리스트 관련 SQL
+    =============================================================== -->
+
+    <!-- 코인 소멸 리스트 카운트 -->
+    <select id="getExpireCoinTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `totalCnt`
+        FROM <include refid="database"/>`member_coin_used`
+        WHERE
+                `member_idx` = #{idx}
+        <if test="endDate != null and endDate != ''">
+            AND `expiredate` <![CDATA[ <= ]]> #{endDate}
+        </if>
+            AND `state` = 1
+    </select>
+
+    <!-- 코인 소멸 리스트 -->
+    <select id="getExpireCoinList" parameterType="SearchDto" resultType="CoinDto">
+        SELECT
+            `rest_coin` AS `value`,
+            `type`,
+            IFNULL(CONVERT_TZ(`expiredate`, 'UTC', '${convertTZ}'), '') AS expiredate
+        FROM <include refid="database"/>`member_coin_used`
+        WHERE
+                `member_idx` = #{idx}
+        <if test="endDate != null and endDate != ''">
+            AND `expiredate` <![CDATA[ <= ]]> #{endDate}
+        </if>
+            AND `state` = 1
+        ORDER BY `expiredate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 마일리지 소멸 카운트 -->
+    <select id="getExpireMileageTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `totalCnt`
+        FROM <include refid="database"/>`member_mileage_used`
+        WHERE
+                `member_idx` = #{idx}
+        <if test="endDate != null and endDate != ''">
+            AND `expiredate` <![CDATA[ <= ]]> #{endDate}
+        </if>
+            AND `state` = 1
+    </select>
+
+    <!-- 마일리지 소멸 리스트 -->
+    <select id="getExpireMileageList" parameterType="SearchDto" resultType="CoinDto">
+        SELECT
+            `rest_mileage` AS `value`,
+            IFNULL(CONVERT_TZ(`expiredate`, 'UTC', '${convertTZ}'), '') AS expiredate
+        FROM <include refid="database"/>`member_mileage_used`
+        WHERE
+                `member_idx` = #{idx}
+        <if test="endDate != null and endDate != ''">
+            AND `expiredate` <![CDATA[ <= ]]> #{endDate}
+        </if>
+            AND `state` = 1
+        ORDER BY `expiredate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 마일리지 지급 내역 개수 조회 -->
+    <select id="getGivenMileageTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`memisa`.`idx`) AS `totalCnt`
+        FROM <include refid="database"/> `member_mileage_save` AS `memisa`
+        JOIN <include refid="database"/> `member_mileage_used` AS `memius`
+            ON `memisa`.`idx` = `memius`.`member_mileage_save_idx`
+        WHERE
+            `memisa`.`member_idx` = #{memberIdx}
+            <if test="nowDate != null and nowDate != ''">
+                AND `memius`.`expiredate` <![CDATA[ > ]]> #{nowDate}
+            </if>
+            AND `memisa`.`payment_idx` = 0
+            AND `memisa`.`state` = 1
+            AND `memius`.`state` = 1
+    </select>
+
+    <!-- 마일리지 지급 내역 조회 -->
+    <select id="getGivenMileageList" parameterType="SearchDto" resultType="CoinDto">
+        SELECT
+            `memisa`.`idx`,
+            `memisa`.`member_idx`,
+            `memisa`.`payment_idx`,
+            `memisa`.`achievement_idx`,
+            `memisa`.`mileage`,
+            `memisa`.`position`,
+            `memisa`.`title`,
+            `memisa`.`state`,
+            IFNULL(CONVERT_TZ(`memisa`.`regdate`, 'UTC', '${convertTZ}'), '') AS regdate
+        FROM <include refid="database"/> `member_mileage_save` AS `memisa`
+        JOIN <include refid="database"/> `member_mileage_used` AS `memius`
+            ON `memisa`.`idx` = `memius`.`member_mileage_save_idx`
+        WHERE
+            `memisa`.`member_idx` = #{memberIdx}
+            <if test="nowDate != null and nowDate != ''">
+                AND `memius`.`expiredate` <![CDATA[ > ]]> #{nowDate}
+            </if>
+            AND `memisa`.`payment_idx` = 0
+            AND `memisa`.`state` = 1
+            AND `memius`.`state` = 1
+        ORDER BY `memisa`.`regdate` DESC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 코인 OR 마일리지 지급일 조회 -->
+    <select id="getCoinOrMileageRegdate" parameterType="NotificationDto" resultType="String">
+        SELECT
+            `regdate`
+        FROM <include refid="database"/> ${type}
+        WHERE
+            `idx` = #{typeIdx}
+    </select>
+
+    <!-- 1일 1회 로그인 마일리지 지급 여부 조회 -->
+    <select id="getMemberLoginMileageInfo" parameterType="MemberDto" resultType="CoinDto">
+        SELECT
+            `evlolo`.`member_idx`,
+            `evlolo`.`mileage`,
+            `evlolo`.`state`,
+            IFNULL(CONVERT_TZ(`evlolo`.`regdate`, 'UTC', '${convertTZ}'), '') AS regdate,
+            IFNULL(CONVERT_TZ(`evlolo`.`expiredate`, 'UTC', '${convertTZ}'), '') AS expiredate
+        FROM <include refid="database"/> `event_login_log` AS `evlolo`
+        JOIN <include refid="database"/> `member_info` AS `mein`
+            ON `evlolo`.`member_idx` = `mein`.`member_idx`
+        WHERE
+            `evlolo`.`state` = 1
+            <if test="ci != null and ci != ''">
+                AND `mein`.`ci` = #{ci}
+            </if>
+            <if test="startDate != null and startDate != '' and endDate != null and endDate != ''">
+                AND `evlolo`.`regdate` <![CDATA[ >= ]]> #{startDate}
+                AND `evlolo`.`regdate` <![CDATA[ <= ]]> #{endDate}
+            </if>
+    </select>
+
+    <!-- 오늘 받은 로그인 마일리지 지급 내역 조회 -->
+    <select id="getTodayLoginMileageInfo" parameterType="SearchDto" resultType="CoinDto">
+        SELECT
+            `memisa`.`position`,
+            `memius`.`mileage`,
+            `memius`.`rest_mileage`,
+            IFNULL(CONVERT_TZ(`memius`.`regdate`, 'UTC', '${convertTZ}'), '') AS regdate,
+            IFNULL(CONVERT_TZ(`memius`.`expiredate`, 'UTC', '${convertTZ}'), '') AS expiredate
+        FROM <include refid="database"/> `member_mileage_save` AS `memisa`
+        JOIN <include refid="database"/> `member_mileage_used` AS `memius`
+            ON `memisa`.`idx` = `memius`.`member_mileage_save_idx` AND `memius`.`state` = 1
+        WHERE
+            `memisa`.`state` = 1
+            <if test="searchType != null and searchType != ''">
+                AND `memisa`.`position` = #{searchType}
+            </if>
+            <if test="memberIdx != null and memberIdx > 0">
+                AND `memisa`.`member_idx` = #{memberIdx}
+            </if>
+            <if test="nowDate != null and nowDate != ''">
+                AND DATE_FORMAT(`memisa`.`regdate`, '%Y-%m-%d') = #{nowDate}
+            </if>
+    </select>
+
+</mapper>

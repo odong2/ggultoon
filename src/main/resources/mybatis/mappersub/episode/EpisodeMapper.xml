@@ -1,0 +1,582 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.episode.EpisodeDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 요청 기기정보 컬럼 set -->
+    <sql id="deviceColumn">
+        <choose>
+            <when test="device == 'pc'">
+                'pc' AS `device`
+            </when>
+            <when test="device == 'mobile'">
+                'mobile' AS `device`
+            </when>
+            <when test="device == 'origin'">
+                'origin' AS `device`
+            </when>
+        </choose>
+    </sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 유효한 에피소드 idx 인지 조회 -->
+    <select id="getEpisodeCnt" parameterType="EpisodeDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `episodeCnt`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `idx` = #{idx}
+            <if test="contentIdx != null and contentIdx > 0">
+                AND `contents_idx` = #{contentIdx}
+            </if>
+            AND `state` = 1
+            AND `pubdate` <![CDATA[ <= ]]> #{nowDate}
+    </select>
+
+    <!-- 회원 해당 컨텐츠 최근 본 회차 있는지 조회 -->
+    <select id="getMemberLastViewCnt" parameterType="EpisodeDto" resultType="int">
+        SELECT
+            IFNULL(COUNT(`idx`), 0 ) AS `lastViewCnt`
+        FROM <include refid="database"/>`member_last_view`
+        WHERE
+                `member_idx` = #{memberIdx}
+            AND `contents_idx` = #{contentIdx}
+    </select>
+
+    <!-- 컨텐츠 전체 회차 개수 조회 (by EpisodeDto)-->
+    <select id="getEpisodeTotalCnt" parameterType="EpisodeDto" resultType="int">
+        SELECT
+            COUNT(`idx`) AS `totalEpCnt`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `contents_idx` = #{contentIdx}
+        <if test="includeFree != null">
+          <choose>
+              <when test="includeFree == true">
+                AND `coin` > 0
+              </when>
+              <otherwise>
+                AND `sort` <![CDATA[>]]> #{sort}
+                AND `coin` > 0
+              </otherwise>
+          </choose>
+        </if>
+                AND `state` = 1
+                AND `pubdate` <![CDATA[<=]]> #{nowDate}
+    </select>
+
+    <!-- 컨텐츠 전체 회차 개수 조회  (by SearchDto) -->
+    <select id="getEpisodeTotalCntBySearchDto" parameterType="EpisodeDto" resultType="int">
+        SELECT
+            COUNT(`ep`.`idx`) AS `totalEpCnt`
+        FROM <include refid="database"/>`contents` AS `co`
+        JOIN <include refid="database"/>`episode` AS `ep`
+            ON `co`.`idx` = `ep`.`contents_idx`
+        WHERE
+                `co`.`idx` = #{contentsIdx}
+            AND `ep`.`state` = 1
+            AND `ep`.`pubdate` <![CDATA[<=]]> #{nowDate}
+    </select>
+
+    <!-- 회차 뷰 카운트 조회 -->
+    <select id="getEpisodeViewCnt" parameterType="Long" resultType="int">
+        SELECT
+            `view`
+        FROM <include refid="database"/>`episode_info`
+        WHERE
+            `episode_idx` = #{idx}
+    </select>
+
+    <!-- 회차 idx 조회 (contentIdx, sort)-->
+    <select id="getIdxBySort" parameterType="EpisodeDto" resultType="Long">
+        SELECT
+            IFNULL(MAX(`idx`), 0) AS `idx`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `contents_idx` = #{contentIdx}
+            AND `sort` = #{sort}
+            AND `state` = 1
+    </select>
+
+    <!-- 회차 sort 조회 -->
+    <select id="getEpisodeSortByIdx" parameterType="Long" resultType="int">
+        SELECT
+            `sort`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 회차 idx 조회 (contentIdx, sort)-->
+    <select id="getSortByIdx" parameterType="Long" resultType="Long">
+        SELECT
+            `sort`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+    </select>
+
+    <!-- 회차 idx 리스트 (contentIdx, sort) -->
+    <select id="getFreeIdxListBySort" parameterType="EpisodeDto" resultType="Long">
+        SELECT
+            `idx`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `contents_idx` = #{contentIdx}
+            AND `sort` <![CDATA[<=]]> #{sort}
+            AND `state` = 1
+    </select>
+
+    <!-- 회차 정보 조회(뷰어에서 활용) -->
+    <select id="getEpisodeInfo" parameterType="Long" resultType="EpisodeDto">
+        SELECT
+            `ep`.`title`,
+            `ep`.`idx`,
+            `ep`.`check_login`,
+            `ep`.`check_arrow`,
+            `ep`.`sort`,
+            `ep`.`episode_number`,
+            `ep`.`coin`,
+            `ep`.`coin_rent`,
+            `epim`.`url`,
+            `epim`.`width`,
+            `epim`.`height`,
+            `co`.`idx` AS `contentIdx`,
+            `co`.`adult`,
+            `co`.`sell_type`,
+            `co`.`title` AS `contentsTitle`,
+            `co`.`sell_type`,
+            `ca`.`idx` AS categoryIdx,
+            `epevco`.`event_coin`,
+            `epevco`.`event_coin_rent`,
+            IFNULL(CONVERT_TZ(`epevco`.`event_start_date`, 'UTC', '${convertTZ}'), '') AS startdate,
+            IFNULL(CONVERT_TZ(`epevco`.`event_end_date`, 'UTC', '${convertTZ}'), '') AS enddate
+        FROM <include refid="database"/>`episode` AS `ep`
+        LEFT JOIN <include refid="database"/>`episode_img` AS `epim`
+            ON `epim`.`episode_idx` = `ep`.`idx` AND `epim`.`state` = 1
+        JOIN <include refid="database"/>`contents` AS `co`
+            ON `co`.`idx` = `ep`.`contents_idx`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        LEFT JOIN <include refid="database" />`episode_event_coin` AS `epevco`
+            ON `ep`.`idx` = `epevco`.`episode_idx`
+        WHERE
+            `ep`.`idx` = #{idx}
+    </select>
+
+    <!-- 웹툰 회차 이미지 리스트 -->
+    <select id="getEpisodeWebtoonImgList" parameterType="EpisodeDto" resultType="EpisodeImgDto">
+        SELECT
+            `sort`,
+            `url`,
+            `width`,
+            `height`
+        FROM <include refid="database"/>`viewer_webtoon`
+        WHERE
+                `episode_idx` = #{idx}
+            AND `state`       = 1
+            AND `device`      = #{device}
+        ORDER BY `sort` ASC
+    </select>
+
+    <!-- 만화 회차 이미지 리스트 -->
+    <select id="getEpisodeComicImgList" parameterType="EpisodeDto" resultType="EpisodeImgDto">
+        SELECT
+            `sort`,
+            `url`,
+            `width`,
+            `height`
+        FROM <include refid="database"/>`viewer_comic`
+        WHERE
+                `episode_idx` = #{idx}
+            AND `state`       = 1
+            AND `device`      = #{device}
+        ORDER BY `sort` ASC
+    </select>
+
+    <!-- 소설 회차 이미지 리스트 -->
+    <select id="getEpisodeNovelImgList" parameterType="Long" resultType="EpisodeImgDto">
+        SELECT
+            `sort`,
+            `detail` AS `url`
+        FROM <include refid="database"/>`viewer_novel`
+        WHERE
+                `episode_idx` = #{idx}
+            AND `state`       = 1
+        ORDER BY `sort` ASC
+    </select>
+
+    <!-- 소설 커버 이미지 url 조회 -->
+    <select id="getNovelCoverImg" parameterType="EpisodeDto" resultType="EpisodeImgDto">
+        SELECT
+            `url`,
+            `width`,
+            `height`
+        FROM <include refid="database"/>`viewer_novel_img`
+        WHERE
+                `episode_idx` = #{idx}
+            AND `device`      = #{device}
+        limit 1
+    </select>
+
+    <!-- 뷰어 회차 리스트 (뷰어에서 사용) -->
+    <select id="getEpisodeList" parameterType="SearchDto" resultType="EpisodeDto">
+        SELECT
+            `ep`.`idx`,
+            `ep`.`episode_number`,
+            `ep`.`sort`,
+            `ep`.`title`,
+            `ep`.`coin`,
+            `ep`.`coin_rent`,
+            `ep`.`check_login`,
+            `ca`.`idx` AS `categoryIdx`
+        FROM <include refid="database"/>`contents` AS `co`
+        JOIN <include refid="database"/>`episode` AS `ep`
+            ON `co`.`idx` = `ep`.`contents_idx`
+        JOIN <include refid="database"/>`category` AS `ca`
+            ON `co`.`category_idx` = `ca`.`idx`
+        WHERE
+                `co`.`idx` = #{contentsIdx}
+            AND `ep`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+        ORDER BY `sort` ASC
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 무료 회차 조회 -->
+    <select id="getFreeEpisodeCnt" parameterType="Integer" resultType="int">
+        SELECT
+            IFNULL(MAX(`free_episode_cnt`), 0) AS `freeCnt`
+        FROM <include refid="database"/>`contents_event_free`
+        WHERE
+            `contents_idx` = #{contentIdx}
+        LIMIT 1
+    </select>
+
+    <!-- 이벤트 무료 회차 조회 -->
+    <select id="getEventFreeEpisodeCnt" parameterType="EpisodeDto" resultType="int">
+        SELECT
+            IFNULL(MAX(`event_free_episode_cnt`), 0) AS `eventFreeCnt`
+        FROM <include refid="database"/>`contents_event_free`
+        WHERE
+                `contents_idx` = #{contentIdx}
+            AND `event_free_used` = 1
+            AND `event_start_date` <![CDATA[ <= ]]> #{nowDate}
+            AND `event_end_date` <![CDATA[ >= ]]> #{nowDate}
+        LIMIT 1
+    </select>
+
+    <!-- 회차 번호 조회 -->
+    <select id="getEpisodeNumberByIdx" parameterType="Long" resultType="int">
+        SELECT
+            `episode_number`
+        FROM <include refid="database"/>`episode`
+        WHERE
+                `idx` = #{idx}
+            AND `state` = 1
+        LIMIT 1
+    </select>
+
+    <!-- 선택한 작품이 성인작품인지 조회 -->
+    <select id="getIsEpisodeAdult" parameterType="SearchDto" resultType="int">
+        SELECT
+            `adult`
+        FROM <include refid="database"/>`contents`
+        WHERE
+                `idx` = #{contentsIdx}
+            AND `state` = 1
+        LIMIT 1
+    </select>
+
+    <!-- 컨텐츠 회차 개수 카운트 -->
+    <select id="getContentEpisodesTotalCnt" parameterType="SearchDto" resultType="int">
+        SELECT
+            COUNT(`ep`.`idx`) AS episodeCnt
+        FROM <include refid="database"/>`episode` AS `ep`
+        JOIN <include refid="database" />`contents` AS `co`
+            ON `ep`.`contents_idx` = `co`.`idx`
+        WHERE
+            `ep`.`contents_idx` = #{contentsIdx}
+            AND `co`.`state` = 1
+            AND `ep`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            AND `ep`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            <choose>
+                <when test="adult != null">
+                    <if test="adult == 0">
+                        AND `co`.`adult` = 0
+                    </if>
+                </when>
+                <otherwise>
+                    AND `co`.`adult` = 0
+                </otherwise>
+            </choose>
+        LIMIT 1
+    </select>
+
+    <!-- 컨텐츠 회차 리스트 -->
+    <select id="getContentEpisodeList" parameterType="SearchDto" resultType="EpisodeDto">
+        SELECT
+            `ep`.`idx`
+            , `ep`.`contents_idx` AS contentIdx
+            , `ep`.`coin`
+            , `ep`.`coin_rent`
+            , `ep`.`episode_number`
+            , `ep`.`sort`
+            , `ep`.`title`
+            , `ep`.`check_login`
+            , `ep`.`check_arrow`
+            , IFNULL(CONVERT_TZ(`ep`.`pubdate`, 'UTC', '${convertTZ}'), '') AS pubdate
+            , `co`.`category_idx`
+            , `co`.`sell_type`
+            <if test="type == null or type == 1">
+                <choose>
+                    <when test="categoryIdx == 1 or categoryIdx == 2">
+                        , `epim`.`url`
+                        , `epim`.`width`
+                        , `epim`.`height`
+                    </when>
+                    <otherwise>
+                        , `coim`.`url`
+                        , `coim`.`width`
+                        , `coim`.`height`
+                    </otherwise>
+                </choose>
+                , <include refid="deviceColumn"/>
+            </if>
+            , `epty`.`name` AS episodeTypeName
+            , `epevco`.`event_coin` AS eventCoin
+            , `epevco`.`event_coin_rent` AS eventCoinRent
+            , IFNULL(CONVERT_TZ(`epevco`.`event_start_date`, 'UTC', '${convertTZ}'), '') AS startdate
+            , IFNULL(CONVERT_TZ(`epevco`.`event_end_date`, 'UTC', '${convertTZ}'), '') AS enddate
+        FROM <include refid="database"/>`episode` AS `ep`
+        JOIN <include refid="database" />`contents` AS `co`
+            ON `ep`.`contents_idx` = `co`.`idx`
+        <if test="type == null or type == 1">
+            <choose>
+                <when test="categoryIdx == 1 or categoryIdx == 2">
+                    LEFT JOIN <include refid="database" />`episode_img` AS `epim`
+                        ON `ep`.`idx` = `epim`.`episode_idx`
+                        AND `epim`.`state`  = 1
+                        AND `epim`.`device` = #{device}
+                        AND `epim`.`type`   = 'width'
+                </when>
+                <otherwise>
+                    LEFT JOIN <include refid="database" />`contents_img` AS `coim`
+                        ON `co`.`idx` = `coim`.`contents_idx`
+                        AND `coim`.`state`  = 1
+                        AND `coim`.`device` = #{device}
+                        AND `coim`.`type`   = 'height'
+                </otherwise>
+            </choose>
+        </if>
+        JOIN <include refid="database" />`episode_type` AS `epty`
+            ON `ep`.`episode_type_idx` = `epty`.`idx`
+        JOIN <include refid="database" />`episode_event_coin` AS `epevco`
+            ON `ep`.`idx` = `epevco`.`episode_idx`
+        WHERE
+                `ep`.`contents_idx` = #{contentsIdx}
+            AND `co`.`state` = 1
+            AND `ep`.`state` = 1
+            AND `co`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+            AND `ep`.`pubdate` <![CDATA[ <= ]]> #{nowDate}
+        <if test="episodeIdx != null">
+            AND `ep`.`idx` = #{episodeIdx}
+        </if>
+            <choose>
+                <when test="adult != null">
+                    <if test="adult == 0">
+                        AND `co`.`adult` = 0
+                    </if>
+                </when>
+                <otherwise>
+                    AND `co`.`adult` = 0
+                </otherwise>
+            </choose>
+        <choose>
+            <when test="sortType != null and sortType > 0">
+                <choose>
+                    <when test="sortType == 1">
+                        ORDER BY `ep`.`sort` ASC
+                    </when>
+                    <otherwise>
+                        ORDER BY `ep`.`sort` DESC
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                ORDER BY `ep`.`sort` ASC
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="pagination != null">
+                LIMIT #{recordSize}
+                OFFSET #{pagination.limitStart}
+            </when>
+            <otherwise>
+                LIMIT #{recordSize}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 회원이 마지막으로 본 회차 번호 조회 -->
+    <select id="getMemberLastViewNumber" parameterType="SearchDto" resultType="EpisodeLastViewDto">
+        SELECT
+            IFNULL(`melavi`.`episode_idx`, 0) AS episodeIdx,
+            IFNULL(`melavi`.`episode_number`, 0) AS episodeNumber
+        FROM <include refid="database"/>`member_last_view` as `melavi`
+        WHERE
+                `melavi`.`member_idx` = #{memberIdx}
+            AND `melavi`.`contents_idx` = #{contentsIdx}
+    </select>
+
+    <!-- 해당 작품의 첫번째 회차 idx + 회차 번호 조회 -->
+    <select id="getFirstEpisodeInfo" parameterType="SearchDto" resultType="hashmap">
+        SELECT
+            IFNULL(MIN(`ep`.`idx`), 0) AS firstEpisodeIdx,
+            IFNULL(MIN(`ep`.`episode_number`), '') AS firstEpisodeNumber
+        FROM <include refid="database"/>`episode` AS `ep`
+        JOIN <include refid="database" />`contents` AS `co`
+            ON `ep`.`contents_idx` = `co`.`idx`
+        WHERE
+            `ep`.`contents_idx` = #{contentsIdx}
+            AND `co`.`state` = 1
+            AND `ep`.`state` = 1
+        GROUP BY `co`.`idx`
+    </select>
+
+    <!-- 회원이 대여한 회차 조회-->
+    <select id="getMemberRentList" parameterType="SearchDto" resultType="EpisodeDto">
+        SELECT
+            `episode_idx` AS idx,
+            IFNULL(CONVERT_TZ(`expiredate`, 'UTC', '${convertTZ}'), '') AS expiredate
+        FROM <include refid="database"/>`member_purchase`
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `contents_idx` = #{contentsIdx}
+            AND `type` = 1
+            AND `state` = 1
+            AND `expiredate` <![CDATA[ > ]]> #{nowDate}
+    </select>
+
+    <!-- 회원이 소장한 회차 번호 조회 -->
+    <select id="getMemberHaveList" parameterType="SearchDto" resultType="long">
+        SELECT
+            `episode_idx` AS idx
+        FROM <include refid="database"/>`member_purchase`
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `contents_idx` = #{contentsIdx}
+            AND `type` = 2
+            AND `state` = 1
+    </select>
+
+    <!-- 무료 회차 & 이벤트 무료 회차 & 이벤트 진행 상태 조회 -->
+    <select id="episodeFreeAndEventInfo" parameterType="SearchDto" resultType="EpisodeDto">
+        SELECT
+            IFNULL(`free_episode_cnt`, 0) AS freeEpisodeCnt,
+            IFNULL(`event_free_episode_cnt`, 0) AS eventFreeEpisodeCnt,
+            IFNULL(`event_free_used`, 0) AS eventFreeUsed,
+            IFNULL(CONVERT_TZ(`event_start_date`, 'UTC', '${convertTZ}'), '') AS startdate,
+            IFNULL(CONVERT_TZ(`event_end_date`, 'UTC', '${convertTZ}'), '') AS enddate
+        FROM <include refid="database"/>`contents_event_free`
+        WHERE
+            `contents_idx` = #{contentsIdx}
+    </select>
+
+    <!-- 무료 회차 & 이벤트 무료 회차 & 이벤트 진행 상태 조회 -->
+    <select id="getEpisodeFreeInfo" parameterType="Integer" resultType="EpisodeDto">
+        SELECT
+            IFNULL(`free_episode_cnt`, 0) AS freeEpisodeCnt,
+            IFNULL(`event_free_episode_cnt`, 0) AS eventFreeEpisodeCnt,
+            IFNULL(`event_free_used`, 0) AS eventFreeUsed,
+            IFNULL(CONVERT_TZ(`event_start_date`, 'UTC', '${convertTZ}'), '') AS startdate,
+            IFNULL(CONVERT_TZ(`event_end_date`, 'UTC', '${convertTZ}'), '') AS enddate
+        FROM <include refid="database"/>`contents_event_free`
+        WHERE
+            `contents_idx` = #{idx}
+    </select>
+
+    <!-- 회차 이벤트 대여 코인 조회 -->
+    <select id="getEpisodeEventRentCoin" parameterType="EpisodeDto" resultType="Integer">
+        SELECT
+            `event_coin_rent` AS `eventCoinRent`
+        FROM <include refid="database"/>`episode_event_coin`
+        WHERE
+                `episode_idx`      = #{idx}
+            AND `event_start_date` <![CDATA[ <= ]]> #{nowDate}
+            AND `event_end_date`   <![CDATA[ >= ]]> #{nowDate}
+    </select>
+
+    <!-- 회차 이벤트 소장 코인 조회 -->
+    <select id="getEpisodeEventCoin" parameterType="EpisodeDto" resultType="Integer">
+        SELECT
+            `event_coin` AS `eventCoin`
+        FROM <include refid="database"/>`episode_event_coin`
+        WHERE
+                `episode_idx`      = #{idx}
+            AND `event_start_date` <![CDATA[ <= ]]> #{nowDate}
+            AND `event_end_date`   <![CDATA[ >= ]]> #{nowDate}
+    </select>
+
+    <!-- 회차 이벤트 리스트 조회 -->
+    <select id="getEpisodeEvent" parameterType="EpisodeDto" resultType="EpisodeDto">
+        SELECT
+            `episode_idx` AS `idx`,
+            `event_coin`,
+            `event_coin_rent`
+        FROM <include refid="database"/>`episode_event_coin` AS `epevco`
+        JOIN <include refid="database"/>`episode` AS `ep`
+            ON `epevco`.`episode_idx` = `ep`.`idx`
+        JOIN `contents` AS `co`
+            ON `co`.`idx` = `ep`.`contents_idx`
+        WHERE
+                `co`.`idx` = #{contentIdx}
+            AND `event_start_date` <![CDATA[ <= ]]> #{nowDate}
+            AND `event_end_date`   <![CDATA[ >= ]]> #{nowDate}
+    </select>
+
+    <!-- 회차 이벤트 단일 조회 -->
+    <select id="getEpisodeEventByIdx" parameterType="EpisodeDto" resultType="EpisodeDto">
+        SELECT
+            `event_coin`,
+            `event_coin_rent`
+        FROM <include refid="database"/>`episode_event_coin` AS `epevco`
+        WHERE
+                `epevco`.`episode_idx` = #{idx}
+            AND `event_start_date` <![CDATA[ <= ]]> #{nowDate}
+            AND `event_end_date`   <![CDATA[ >= ]]> #{nowDate}
+    </select>
+
+    <!-- 특정 작품의 전체 회차 idx 리스트 -->
+    <select id="getEpisodeIdxList" parameterType="SearchDto" resultType="Long">
+        SELECT
+            `idx`
+        FROM <include refid="database"/>`episode`
+        WHERE
+            `contents_idx` = #{contentsIdx}
+            AND `episode_number` <![CDATA[ > ]]> 0
+            AND `pubdate` <![CDATA[ <= ]]> #{nowDate}
+            AND `state` = 1
+        ORDER BY `sort` DESC
+    </select>
+
+</mapper>

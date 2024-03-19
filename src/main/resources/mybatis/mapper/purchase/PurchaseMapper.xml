@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.dao.purchase.PurchaseDao">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        INSERT
+    =============================================================== -->
+    <!-- 회원 회차 구매 등록 -->
+    <insert id="insertMemberPurchase" parameterType="PurchaseDto">
+        INSERT INTO <include refid="database"/>`member_purchase`
+        SET
+            `member_idx`    = #{memberIdx},
+            `contents_idx`  = #{contentsIdx},
+            `episode_idx`   = #{episodeIdx},
+            `coin`          = #{coin},
+            `coin_free`     = #{coinFree},
+            `mileage`       = #{mileage},
+            `used_ticket`   = #{usedTicket},
+            `type`          = #{type},
+            `title`         = #{title},
+            `asp`           = #{asp},
+            `buy_all_idx`   = #{buyAllIdx},
+            `route`         = #{route},
+            `state`         = 1,
+            `expiredate`    = #{expiredate},
+            `expiredate_tz` = '${convertTZ}',
+            `regdate`       = #{regdate},
+            `regdate_tz`    = '${convertTZ}'
+    </insert>
+
+    <!-- 회원 구매 리스트 등록 -->
+    <insert id="insertMemberPurchaseList" parameterType="List">
+        INSERT INTO <include refid="database"/>`member_purchase`
+            (
+                `member_idx`,
+                `contents_idx`,
+                `episode_idx`,
+                `coin`,
+                `coin_free`,
+                `mileage`,
+                `used_ticket`,
+                `type`,
+                `title`,
+                `asp`,
+                `buy_all_idx`,
+                `route`,
+                `state`,
+                `expiredate`,
+                `expiredate_tz`,
+                `regdate`,
+                `regdate_tz`
+            )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.memberIdx},
+                #{item.contentsIdx},
+                #{item.episodeIdx},
+                #{item.coin},
+                #{item.coinFree},
+                #{item.mileage},
+                #{item.usedTicket},
+                #{item.type},
+                #{item.title},
+                #{item.asp},
+                #{item.buyAllIdx},
+                #{item.route},
+                1,
+                #{item.expiredate},
+                '${convertTZ}',
+                #{item.regdate},
+                '${convertTZ}'
+            )
+            </foreach>
+    </insert>
+
+    <!-- 회원 전체 구매 등록 -->
+    <insert id="insertMemberBuyAll" parameterType="PurchaseBuyAllDto" useGeneratedKeys="true" keyProperty="insertedIdx">
+        INSERT INTO <include refid="database"/>`member_purchase_buy_all`
+        SET
+            `member_idx`    = #{memberIdx},
+            `contents_idx`  = #{contentsIdx},
+            `total_coin`    = #{totalCoin},
+            `episode_count` = #{episodeCount},
+            `type`          = #{type},
+            `state`         = 1,
+            `expiredate`    = #{expiredate},
+            `expiredate_tz` = '${convertTZ}',
+            `regdate`       = #{regdate},
+            `regdate_tz`    = '${convertTZ}'
+    </insert>
+
+    <!-- ==============================================================
+        UPDATE
+    =============================================================== -->
+
+
+
+    <!-- ==============================================================
+        DELETE
+    =============================================================== -->
+
+    <!-- 회원 코인 사용내역 삭제 -->
+    <update id="deleteMemberUsedCoinList" parameterType="PurchaseDto">
+        UPDATE <include refid="database"/>`member_purchase`
+        SET
+            `state` = 0
+        WHERE
+                `idx` in
+            <foreach collection="idxList" item="idx" open="("  separator="," close=")">
+                 #{idx}
+            </foreach>
+            AND `member_idx` = #{memberIdx}
+            AND `state`      = 1
+    </update>
+
+    <!-- 대여 및 소장 작품 리스트 삭제 -->
+    <update id="deleteMemberPurchaseList" parameterType="SearchDto">
+        UPDATE <include refid="database"/>`member_purchase`
+        SET
+            `state` = 0
+        WHERE
+                `contents_idx` in
+            <foreach collection="contentsIdxList" item="idx" open="("  separator="," close=")">
+                #{idx}
+            </foreach>
+        AND `member_idx` = #{memberIdx}
+        AND `state` = 1
+    </update>
+
+</mapper>

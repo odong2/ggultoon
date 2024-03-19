@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.login.JoinDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- 공통으로 사용할 field -->
+    <sql id="joinColumns">
+        `me`.`idx`,
+		`me`.`id`,
+		`me`.`is_simple`,
+		`mein`.`email`,
+		`mein`.`state`
+    </sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+    <!-- 아이디 카운트 가져오기 -->
+    <select id="getCountById" parameterType="MemberDto" resultType="int">
+        SELECT
+            COUNT(`me`.`idx`) AS `cnt`
+        FROM <include refid="database" />`member` AS `me`
+            LEFT JOIN <include refid="database" />`member_info` AS `mein`
+                ON `me`.`idx` = `mein`.`member_idx`
+            LEFT JOIN <include refid="database" />`member_simple` AS `mesi`
+                ON `me`.`idx` = `mesi`.`member_idx`
+        WHERE
+            `me`.`id` = #{id}
+        <if test="state != null and !state.equals('')">
+           AND `mein`.`state` = #{state}
+        </if>
+        <if test="simpleType != null and !simpleType.equals('')">
+            AND `mesi`.`simple_type` = #{simpleType}
+        </if>
+    </select>
+
+    <!-- 본인인증 정보 확인 -->
+    <select id="getCountByTxseq" parameterType="MemberDto" resultType="String">
+        SELECT
+            `mein`.`ci`
+        FROM <include refid="database" />`member_info` AS `mein`
+        WHERE
+                `mein`.`txseq` = #{txseq}
+            AND `mein`.`member_idx` = 0
+        LIMIT 1
+    </select>
+
+    <!-- 이벤트 본인인증 정보 확인 -->
+    <select id="getEventCiCheck" parameterType="MemberDto" resultType="MemberOttDto">
+        SELECT
+            `mein`.`member_idx`,
+            `me`.`id`,
+            `meot`.`id` AS ottId,
+            `meot`.`site`
+        FROM <include refid="database" />`event_log` AS `evlo`
+        LEFT JOIN <include refid="database" />`member_info` AS `mein`
+            ON `evlo`.`member_idx` = `mein`.`member_idx`
+        LEFT JOIN <include refid="database" />`member_ott` AS `meot`
+            ON `mein`.`member_idx` = `meot`.`member_idx`
+        LEFT JOIN <include refid="database" />`member` AS `me`
+            ON `me`.`idx` = `mein`.`member_idx`
+        WHERE
+                `mein`.`ci` = #{ci}
+        <if test="eventType != null and !eventType.equals('')">
+            AND `evlo`.event_type = #{eventType}
+                    </if>
+        LIMIT 1
+    </select>
+
+    <!-- 이벤트 참여 확인 -->
+    <select id="getEventCheck" parameterType="MemberOttDto" resultType="long">
+        SELECT
+            `meot`.`member_idx`
+        FROM <include refid="database" />`member_ott` AS `meot`
+        WHERE
+                `meot`.`id`     = #{ottId}
+            AND `meot`.`site`   = #{site}
+            AND `meot`.`member_idx` != #{memberIdx}
+        LIMIT 1
+    </select>
+
+    <!-- 이벤트 회원 정보 확인 -->
+    <select id="getEventMember" parameterType="Long" resultType="MemberOttDto">
+        SELECT
+            `me`.`id`,
+            `meot`.`id` AS ottId,
+            `meot`.`site` ,
+            `meot`.`banner_code` ,
+            `meot`.`event_type`,
+            `meot`.`return_url`,
+            `meot`.`member_idx`
+        FROM <include refid="database" />`member_ott` AS `meot`
+            JOIN <include refid="database" />`member` AS `me`
+                ON  `meot`.`member_idx` = `me`.`idx`
+        WHERE
+            `meot`.`member_idx` = #{memberIdx}
+        LIMIT 1
+    </select>
+
+    <!-- 이벤트 본인인증 정보 확인 -->
+    <select id="getEventCiCheckList" parameterType="MemberDto" resultType="MemberOttDto">
+        SELECT
+            `me`.`id`,
+            `meot`.`id` AS ottId,
+            `meot`.`site` ,
+            `meot`.`banner_code` ,
+            `meot`.`event_type`,
+            `meot`.`return_url`,
+            `meot`.`member_idx`
+        FROM <include refid="database" />`member_ott` AS `meot`
+        JOIN <include refid="database" />`member_info` AS `mein`
+            ON `meot`.`member_idx` = `mein`.`member_idx`
+        JOIN <include refid="database" />`member` AS `me`
+            ON `me`.`idx` = `mein`.`member_idx`
+        WHERE
+                `mein`.`ci` = #{ci}
+            AND `meot`.state = '0'
+            AND `meot`.member_idx != #{idx}
+    </select>
+</mapper>

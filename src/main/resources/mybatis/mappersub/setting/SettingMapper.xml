@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.architecture.admin.models.daosub.setting.SettingDaoSub">
+    <!-- ==============================================================
+        SETTING
+    =============================================================== -->
+    <!-- database name -->
+    <sql id="database">${databaseRefId}</sql>
+
+    <!-- ==============================================================
+        SELECT
+    =============================================================== -->
+
+    <!-- 환경설정 목록 -->
+    <select id="getSettingList" resultType="SettingDto">
+        SELECT
+            `idx` AS settingIdx,
+            `title`,
+            `description`
+        FROM <include refid="database"/>`setting`
+        WHERE
+            `state` = 1
+    </select>
+
+    <!-- 회원 환경설정 목록 전체 카운트 -->
+    <select id="getTotalSettingCnt" parameterType="Long" resultType="int">
+        SELECT
+            COUNT(`mese`.`idx`) AS totalCnt
+        FROM <include refid="database"/>`member_setting` AS `mese`
+        JOIN <include refid="database"/>`setting` AS `se`
+            ON `mese`.`setting_idx` = `se`.`idx`
+        WHERE
+            `mese`.`member_idx` = #{memberIdx}
+            AND `se`.`state` = 1
+        ORDER BY `se`.`idx`
+    </select>
+
+    <!-- 회원 환경설정 목록 -->
+    <select id="getMemberSettingList" parameterType="Long" resultType="SettingDto">
+        SELECT
+            `se`.`idx`,
+            `se`.`title`,
+            `se`.`description`,
+            `mese`.`state`
+        FROM <include refid="database"/>`member_setting` AS `mese`
+        JOIN <include refid="database"/>`setting` AS `se`
+            ON `mese`.`setting_idx` = `se`.`idx`
+        WHERE
+            `mese`.`member_idx` = #{memberIdx}
+            AND `se`.`state` = 1
+        ORDER BY `se`.`idx`
+    </select>
+
+    <!-- 회원 환경설정 정보 -->
+    <select id="getMemberSetting" parameterType="SettingDto" resultType="SettingDto">
+        SELECT
+            `member_idx`,
+            `setting_idx`,
+            `state`
+        FROM <include refid="database"/>`member_setting`
+        WHERE
+            `member_idx` = #{memberIdx}
+            AND `setting_idx` = #{settingIdx}
+        LIMIT 1
+    </select>
+
+</mapper>
